@@ -83,8 +83,6 @@ In a third terminal
 14.) Verify sensor data is streaming
 
 
-
-
 -----------------------------
 
 Copy agent into ~/.config/unity3d/DefaultCompany/UB-MR 
