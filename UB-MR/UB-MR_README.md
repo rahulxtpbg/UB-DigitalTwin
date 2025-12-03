@@ -40,7 +40,7 @@ Launching the Unity Project
 
 (*Optional) Import the preconfigured Lincoln MKZ
 
-    Copy agents/agent-Lincoln MKZ.json into /.config/unity3d/DefaultCompany/UB-MR
+    Copy the contents of agents/ into /.config/unity3d/DefaultCompany/UB-MR
 
 
 Running with a rosbag
