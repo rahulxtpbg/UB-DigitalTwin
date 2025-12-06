@@ -1,0 +1,103 @@
+export HOST_DATA_PATH=/home/poison/Downloads/docker_data/host_data
+export AUTOWARE_DATA_PATH=/home/poison/Downloads/docker_data/autoware_data
+
+python3 config.py --map UBAutonomousProvingGrounds
+
+python3 config.py --host 172.23.0.1 --port 2000 --map UBAutonomousProvingGrounds
+
+CarlaUE4.exe /Game/Carla/Maps/Town10HD -windowed -quality-level=Epic
+CarlaUE4.exe -quality-level=Epic
+
+__NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia ./CarlaUE4.sh 
+
+spawn_points = [(-431.17,29.75),(-436.59,165.68),(-318.63,184.36),(-301.08,170.19),(-222,149.05),(-198,19.13)]
+
+------------------------------------------------------------------------------------
+
+$env:PYTHONPATH="C:\Users\anura\Downloads\ub_carla_collision\WindowsNoEditor\PythonAPI\carla\dist\carla-0.9.15-py3.7-win-amd64.egg;$env:PYTHONPATH"
+
+
+python pcd_mapper.py --town UBAutonomousProvingGrounds --out processed.pcd --voxel 0.1 --pcd-format ascii --write-yaml
+
+python post_process_pcd.py --in cc_rand_processed.clean.pcd --out map_clean_dense.pcd --pcd-format ascii --compress --voxel 0.08 --stat-nb 40 --stat-std 1.8 --cluster-eps 0.7 --cluster-min 25 --remove-small-clusters 150
+
+------------------------------------------------------------------------------------
+
+
+export HOST_DATA_PATH=/home/poison/host_data
+export AUTOWARE_DATA_PATH=/home/poison/autoware_data
+
+python3 -m pip install carla==0.9.15
+pip3 install --upgrade transforms3d
+
+pip install numpy==1.23
+----------------------------------------------------------------------------
+# working
+
+cd C:\Users\anura\Downloads\carla_0.9.15\WindowsNoEditor
+.\CarlaUE4.exe -quality-level=Low -windowed -ResX=1280 -ResY=720
+
+ros2 launch autoware_carla_interface autoware_carla_interface.launch.xml \
+host:=172.17.0.1 carla_map:=UBAutonomousProvingGrounds sync_mode:=True
+
+ros2 launch autoware_carla_interface autoware_carla_interface.launch.xml \
+carla_map:=UBAutonomousProvingGrounds sync_mode:=True
+
+ros2 launch autoware_carla_interface autoware_carla_interface.launch.xml \
+host:=172.17.0.1 carla_map:=town01 sync_mode:=True
+
+ros2 launch autoware_carla_interface autoware_carla_interface.launch.xml \
+carla_map:=UBAutonomousProvingGrounds sync_mode:=True
+
+
+----------------------------------------------------------------------------------------------
+
+ros2 launch autoware_launch e2e_simulator.launch.xml map_path:=/host_data/new_build_map vehicle_model:=sample_vehicle sensor_model:=awsim_sensor_kit simulator_type:=carla host:=172.17.0.1 carla_map:=UBAutonomousProvingGrounds  
+
+ROS_LOG_DIR=/host_data/autoware_log_latest ros2 launch autoware_launch e2e_simulator.launch.xml map_path:=/host_data/new_build_map vehicle_model:=sample_vehicle sensor_model:=awsim_sensor_kit simulator_type:=carla host:=172.17.0.1 carla_map:=UBAutonomousProvingGrounds
+
+ros2 launch autoware_launch e2e_simulator.launch.xml map_path:=/host_data/new_build_map vehicle_model:=sample_vehicle sensor_model:=awsim_sensor_kit simulator_type:=carla host:=172.17.0.1 carla_map:=UBAutonomousProvingGrounds
+
+ros2 launch autoware_launch e2e_simulator.launch.xml map_path:=/home/poison/Downloads/docker_data/host_data/new_build_map vehicle_model:=sample_vehicle sensor_model:=awsim_sensor_kit simulator_type:=carla carla_map:=UBAutonomousProvingGrounds
+
+ros2 launch autoware_launch autoware.launch.xml map_path:=/host_data/town01 vehicle_model:=sample_vehicle sensor_model:=awsim_sensor_kit carla_map:=UBAutonomousProvingGrounds sync_mode:=True
+
+ros2 launch autoware_launch e2e_simulator.launch.xml map_path:=/host_data/town01 vehicle_model:=sample_vehicle sensor_model:=awsim_sensor_kit simulator_type:=carla host:=172.17.0.1 carla_map:=town01
+  
+  
+--------------------------------------------------------------------------------
+
+python dynamic_weather.py --live-weather --lat 42.8864 --lon -78.8784 --elevation 183 --weather-update-interval 300 --apply-interval 1
+
+python3 run_autoware_sumo_carla.py /examples/UBAutonomousProvingGrounds.sumocfg
+
+python3 run_synchronization.py /home/poison/test.sumocfg --sumo-gui
+
+python3 run_synchronization.py examples/UBAutonomousProvingGrounds.sumocfg --step-length 0.05 --sumo-gui
+
+python3 run_synchronization.py /home/poison/Downloads/CARLA_0.9.16/Co-Simulation/Sumo/examples/Town01.sumocfg
+
+python3 run_synchronization.py /home/poison/Downloads/ub_carla_sumo/UBAutonomousProvingGrounds.sumocfg
+
+python3 run_synchronization.py /home/poison/Downloads/CARLA_5cc238b5c-dirty/Co-Simulation/Sumo/examples/UBAutonomousProvingGrounds.sumocfg
+
+
+# Start with this:
+python3 run_synchronization.py /home/poison/Downloads/ub_carla_sumo/UBAutonomousProvingGrounds.sumocfg \
+    --async-mode \
+    --step-length 0.1 \
+    --debug \
+    --log-file run1.log
+
+# If Autoware is slower, increase step length:
+python3 run_synchronization.py /home/poison/Downloads/ub_carla_sumo/UBAutonomousProvingGrounds.sumocfg \
+    --async-mode \
+    --step-length 0.2 \
+    --debug
+
+# For production (no debug spam):
+python3 run_synchronization.py /home/poison/Downloads/ub_carla_sumo/UBAutonomousProvingGrounds.sumocfg \
+    --async-mode \
+    --step-length 0.1
+
+
