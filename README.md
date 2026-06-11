@@ -77,3 +77,19 @@ docker compose --profile udp-bridge up --build
 docker compose --profile traffic-renderer up --build
 docker compose --profile multi-agent-renderer up --build
 ```
+
+## Autoware
+
+Install Autoware
+```bash
+cd Autoware
+./setup_autoware.sh
+```
+
+Start Autoware
+```bash
+./dc_up.bash
+./dc_bash.sh
+# From in the container
+ros2 launch autoware_launch e2e_simulator.launch.xml map_path:=/host_data/maps/ub_autonomous_proving_grounds vehicle_model:=sample_vehicle sensor_model:=awsim_sensor_kit simulator_type:=carla carla_map:=UBAutonomousProvingGrounds
+```
