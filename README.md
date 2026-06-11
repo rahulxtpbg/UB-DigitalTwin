@@ -88,8 +88,15 @@ cd Autoware
 
 Start Autoware
 ```bash
-./dc_up.bash
+./dc_up.sh
 ./dc_bash.sh
-# From in the container
+
+# From in the container...
+
+# First time only
+python3 -m pip install carla==0.9.16
+python3 -m pip install --upgrade transforms3d
+
+
 ros2 launch autoware_launch e2e_simulator.launch.xml map_path:=/host_data/maps/ub_autonomous_proving_grounds vehicle_model:=sample_vehicle sensor_model:=awsim_sensor_kit simulator_type:=carla carla_map:=UBAutonomousProvingGrounds
 ```
