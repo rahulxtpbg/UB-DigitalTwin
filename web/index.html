@@ -209,6 +209,45 @@
 </section>
 
 
+    <!-- Results. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Results</h2>
+        <div class="content has-text-justified">
+          <h3 class="title is-4">LiDAR Reconstruction Quality</h3>
+          <p>
+            The digital twin achieves high-fidelity geometric correspondence with the ground-truth LiDAR scan captured at
+            the University at Buffalo proving ground. Our method demonstrates a registration RMSE of 0.635 meters and mean
+            cloud-to-cloud distance of 0.183 meters, validating the reconstruction quality across diverse urban scenarios.
+          </p>
+          <div class="columns is-centered">
+            <div class="column content">
+              <figure>
+                <img src="./static/images/registration.png" alt="Registration Quality" style="width:100%;"/>
+                <figcaption style="font-size:0.75em;margin-top:0.5rem;">Reconstructed map registered against the ground-truth in CloudCompare. Quality of registration in the order: Blue (good match) > Green > Yellow > Red (poor match)</figcaption>
+              </figure>
+            </div>
+          </div>
+          <h3 class="title is-4">Temporal Synchronization Performance</h3>
+          <p>
+            Our synchronization approach eliminates the timestamp drift inherent in three-way co-simulation. Across 5,000
+            simulation steps, we observe zero drift compared to 230 seconds of drift observed in prior approaches that use
+            an internal CARLA tick alongside SUMO's external synchronization clock.
+          </p>
+          <div class="columns is-centered">
+            <div class="column content">
+              <figure>
+                <img src="./static/images/sync_comparison.png" alt="Sync Comparison" style="width:100%;"/>
+                <figcaption style="font-size:0.75em;margin-top:0.5rem;">Double-tick vs. synchronized timestamp drift across simulation steps</figcaption>
+              </figure>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!--/ Results. -->
+
+
 <section class="section">
   <div class="container is-max-desktop">
 
