@@ -33,6 +33,24 @@ def _env_float(name, default):
         return default
 
 
+def _finite_float(value):
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(result):
+        return None
+    return result
+
+
+def _env_choice(name, default, choices):
+    value = os.environ.get(name, default).strip().lower()
+    if value in choices:
+        return value
+    print(f"[x] Invalid {name}={value!r}; using {default!r}")
+    return default
+
+
 def _normalize_angle_degrees(angle):
     return (angle + 180.0) % 360.0 - 180.0
 
@@ -43,6 +61,13 @@ def _lerp(a, b, alpha):
 
 def _lerp_angle_degrees(a, b, alpha):
     return _normalize_angle_degrees(a + _normalize_angle_degrees(b - a) * alpha)
+
+
+def _location_distance(a, b):
+    dx = a.x - b.x
+    dy = a.y - b.y
+    dz = a.z - b.z
+    return math.sqrt(dx * dx + dy * dy + dz * dz)
 
 
 def _sample_to_transform(sample):
@@ -149,6 +174,9 @@ class MultiTrafficRenderer(Telemetry):
     SAMPLE_HISTORY_SECONDS = 2.0
     DEFAULT_VEHICLE_COLOR = "255,255,255"
     DEFAULT_MANUAL_ACTOR_REDIS_KEY = "carla:manual_control:actor"
+    CAMERA_MODE_CONTINUOUS = "continuous"
+    CAMERA_MODE_SNAP_ONCE = "snap_once"
+    CAMERA_MODE_OFF = "off"
 
     def __init__(self, carla_host=None, carla_port=None):
         super().__init__()
@@ -180,6 +208,27 @@ class MultiTrafficRenderer(Telemetry):
         self.update_hz = max(1.0, _env_float("UB_RENDER_UPDATE_HZ", 60.0))
         self.actor_smoothing = max(0.0, min(1.0, _env_float("UB_RENDER_ACTOR_SMOOTHING", 0.45)))
         self.camera_smoothing = max(0.0, min(1.0, _env_float("UB_RENDER_CAMERA_SMOOTHING", 0.18)))
+        self.camera_position_deadband = max(
+            0.0,
+            _env_float("UB_RENDER_CAMERA_POSITION_DEADBAND_M", 0.05),
+        )
+        self.camera_yaw_deadband = max(
+            0.0,
+            _env_float("UB_RENDER_CAMERA_YAW_DEADBAND_DEG", 0.25),
+        )
+        self.camera_mode = _env_choice(
+            "UB_RENDER_CAMERA_MODE",
+            self.CAMERA_MODE_CONTINUOUS,
+            {
+                self.CAMERA_MODE_CONTINUOUS,
+                self.CAMERA_MODE_SNAP_ONCE,
+                self.CAMERA_MODE_OFF,
+            },
+        )
+        self.timestamp_offset_smoothing = max(
+            0.0,
+            min(1.0, _env_float("UB_RENDER_TIMESTAMP_OFFSET_SMOOTHING", 0.10)),
+        )
         self.followed_traffic_id = None
         self.follow_traffic_id = os.environ.get("UB_RENDER_FOLLOW_TRAFFIC_ID", "")
         self.follow_traffic_id_is_explicit = bool(self.follow_traffic_id)
@@ -191,6 +240,10 @@ class MultiTrafficRenderer(Telemetry):
         self._last_follow_wait_log = 0.0
         self._last_observed_roles_log = 0.0
         self._observed_roles = {}
+        self._server_time_offset = None
+        self._snapped_camera_traffic_ids = set()
+        self._camera_transform = None
+        self._camera_desired_transform = None
         self._state_lock = threading.Lock()
 
         self._should_stop_cleaner = False
@@ -207,7 +260,11 @@ class MultiTrafficRenderer(Telemetry):
             f"max_extrapolation={self.max_extrapolation * 1000:.0f}ms "
             f"update_hz={self.update_hz:.0f} "
             f"actor_smoothing={self.actor_smoothing:.2f} "
-            f"camera_smoothing={self.camera_smoothing:.2f}"
+            f"camera_smoothing={self.camera_smoothing:.2f} "
+            f"camera_position_deadband={self.camera_position_deadband:.2f}m "
+            f"camera_yaw_deadband={self.camera_yaw_deadband:.2f}deg "
+            f"camera_mode={self.camera_mode} "
+            f"timestamp_offset_smoothing={self.timestamp_offset_smoothing:.2f}"
         )
         if self.follow_spectator and self.follow_role_name:
             print(f"[!] Visual CARLA spectator will follow role_name={self.follow_role_name}")
@@ -218,11 +275,13 @@ class MultiTrafficRenderer(Telemetry):
         if parsed_message.get("type") != self.TRAFFIC_MESSAGE_TYPE:
             return
 
+        receive_time = time.time()
+        sample_timestamp = self._sample_timestamp(parsed_message, receive_time)
         self._refresh_manual_actor_id()
         vehicles = parsed_message.get("vehicles", [])
         for v_msg in vehicles:
             traffic_id = v_msg["id"]
-            self.last_message_timestamps[traffic_id] = time.time()
+            self.last_message_timestamps[traffic_id] = receive_time
             self.vehicle_roles[traffic_id] = v_msg.get("role_name", "")
             self._record_observed_role(traffic_id, self.vehicle_roles[traffic_id])
 
@@ -232,7 +291,7 @@ class MultiTrafficRenderer(Telemetry):
             if "location" not in v_msg or "blueprint" not in v_msg:
                 continue
 
-            self._record_pose_sample(traffic_id, v_msg)
+            self._record_pose_sample(traffic_id, v_msg, sample_timestamp)
 
         self._log_follow_waiting()
 
@@ -269,10 +328,27 @@ class MultiTrafficRenderer(Telemetry):
         self.failed_spawn_timestamps.pop(vid, None)
         print(f"[!] Spawned mirrored traffic vehicle ID={vid}")
 
-    def _record_pose_sample(self, traffic_id, v_msg):
+    def _sample_timestamp(self, parsed_message, receive_time):
+        server_timestamp = _finite_float(parsed_message.get("server_timestamp"))
+        if server_timestamp is None:
+            return receive_time
+
+        offset_estimate = receive_time - server_timestamp
+        if self._server_time_offset is None or abs(offset_estimate - self._server_time_offset) > 1.0:
+            self._server_time_offset = offset_estimate
+        else:
+            alpha = self.timestamp_offset_smoothing
+            self._server_time_offset = (
+                (1.0 - alpha) * self._server_time_offset
+                + alpha * offset_estimate
+            )
+
+        return server_timestamp + self._server_time_offset
+
+    def _record_pose_sample(self, traffic_id, v_msg, sample_timestamp):
         location = v_msg["location"]
         sample = {
-            "timestamp": time.time(),
+            "timestamp": sample_timestamp,
             "x": float(location["x"]),
             "y": float(location["y"]),
             "z": float(location["z"]),
@@ -301,6 +377,8 @@ class MultiTrafficRenderer(Telemetry):
         if self.followed_traffic_id == vid:
             print(f"[!] Lost followed traffic vehicle ID={vid}")
             self.followed_traffic_id = None
+            self._reset_camera_state()
+        self._snapped_camera_traffic_ids.discard(vid)
 
     def _should_retry_spawn(self, traffic_id):
         last_attempt = self.failed_spawn_timestamps.get(traffic_id)
@@ -337,13 +415,41 @@ class MultiTrafficRenderer(Telemetry):
 
     def _smooth_update_spectator(self, target_transform, dt):
         desired = self._get_chase_camera_transform(target_transform)
-        if self.camera_smoothing >= 1.0:
-            self.world.get_spectator().set_transform(desired)
+        if (
+            self._camera_desired_transform is not None
+            and not self._camera_target_changed(desired)
+        ):
+            desired = self._camera_desired_transform
+        else:
+            self._camera_desired_transform = desired
+
+        if self._camera_transform is None:
+            self._set_spectator_transform(desired)
             return
 
-        current = self.world.get_spectator().get_transform()
+        if self.camera_smoothing >= 1.0:
+            self._set_spectator_transform(desired)
+            return
+
         alpha = _frame_scaled_alpha(self.camera_smoothing, dt)
-        self.world.get_spectator().set_transform(_blend_transforms(current, desired, alpha))
+        self._set_spectator_transform(_blend_transforms(self._camera_transform, desired, alpha))
+
+    def _camera_target_changed(self, desired):
+        previous = self._camera_desired_transform
+        position_delta = _location_distance(previous.location, desired.location)
+        yaw_delta = abs(_normalize_angle_degrees(desired.rotation.yaw - previous.rotation.yaw))
+        return (
+            position_delta >= self.camera_position_deadband
+            or yaw_delta >= self.camera_yaw_deadband
+        )
+
+    def _set_spectator_transform(self, transform):
+        self.world.get_spectator().set_transform(transform)
+        self._camera_transform = transform
+
+    def _reset_camera_state(self):
+        self._camera_transform = None
+        self._camera_desired_transform = None
 
     def _get_chase_camera_transform(self, target_transform):
         yaw = math.radians(target_transform.rotation.yaw)
@@ -354,6 +460,21 @@ class MultiTrafficRenderer(Telemetry):
         )
         rotation = carla.Rotation(pitch=-15.0, yaw=target_transform.rotation.yaw, roll=0.0)
         return carla.Transform(location, rotation)
+
+    def _update_follow_camera(self, traffic_id, target_transform, dt):
+        if self.camera_mode == self.CAMERA_MODE_OFF:
+            return
+
+        if self.camera_mode == self.CAMERA_MODE_SNAP_ONCE:
+            if traffic_id in self._snapped_camera_traffic_ids:
+                return
+            self._set_spectator_transform(self._get_chase_camera_transform(target_transform))
+            self._camera_desired_transform = self._camera_transform
+            self._snapped_camera_traffic_ids.add(traffic_id)
+            print(f"[!] Snapped visual CARLA spectator to traffic vehicle ID={traffic_id}")
+            return
+
+        self._smooth_update_spectator(target_transform, dt)
 
     def _refresh_manual_actor_id(self, force=False):
         if self.follow_traffic_id_is_explicit:
@@ -385,6 +506,8 @@ class MultiTrafficRenderer(Telemetry):
         if actor_id != self.follow_traffic_id:
             self.follow_traffic_id = actor_id
             self.followed_traffic_id = None
+            self._snapped_camera_traffic_ids.discard(actor_id)
+            self._reset_camera_state()
             print(f"[!] Loaded manual actor ID={actor_id} from Redis key {self.manual_actor_redis_key}")
 
     def _record_observed_role(self, traffic_id, role_name):
@@ -447,7 +570,7 @@ class MultiTrafficRenderer(Telemetry):
             if self._should_follow(traffic_id):
                 vehicle = self.traffic_vehicles.get(traffic_id)
                 camera_target = vehicle.get_transform() if vehicle is not None else transform
-                self._smooth_update_spectator(camera_target, dt)
+                self._update_follow_camera(traffic_id, camera_target, dt)
 
     # --------------------------
     # Render and cleanup threads

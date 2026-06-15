@@ -68,21 +68,24 @@ class TrafficTelemetryPublisher(Telemetry):
         print(f"[!] Traffic telemetry publish rate: {publish_hz:.1f} Hz")
 
     def _get_publish_hz(self):
-        raw_value = os.environ.get("UB_TRAFFIC_PUBLISH_HZ", "30")
+        raw_value = os.environ.get("UB_TRAFFIC_PUBLISH_HZ", "60")
         try:
             publish_hz = float(raw_value)
         except ValueError:
-            print(f"[x] Invalid UB_TRAFFIC_PUBLISH_HZ={raw_value!r}; using 30")
-            return 30.0
+            print(f"[x] Invalid UB_TRAFFIC_PUBLISH_HZ={raw_value!r}; using 60")
+            return 60.0
         if publish_hz <= 0.0:
-            print(f"[x] Invalid UB_TRAFFIC_PUBLISH_HZ={raw_value!r}; using 30")
-            return 30.0
+            print(f"[x] Invalid UB_TRAFFIC_PUBLISH_HZ={raw_value!r}; using 60")
+            return 60.0
         return publish_hz
 
     def handle_fetch_telemetry_data(self):
         with self._world_lock:
+            snapshot = self._world.get_snapshot()
             vehicles = self._world.get_actors().filter("vehicle.*")
 
+        server_timestamp = float(snapshot.timestamp.elapsed_seconds)
+        server_frame = int(snapshot.frame)
         messages = []
         for vehicle in vehicles:
             role_name = vehicle.attributes.get("role_name", "")
@@ -97,6 +100,8 @@ class TrafficTelemetryPublisher(Telemetry):
                 "role_name": role_name,
                 "blueprint": vehicle.type_id,
                 "color": vehicle.attributes.get("color", "255,255,255"),
+                "server_timestamp": server_timestamp,
+                "server_frame": server_frame,
                 "location": {
                     "x": transform.location.x, 
                     "y": transform.location.y, 
@@ -104,7 +109,11 @@ class TrafficTelemetryPublisher(Telemetry):
                     },
                 "yaw": transform.rotation.yaw
             })
-        return {"vehicles": messages}
+        return {
+            "vehicles": messages,
+            "server_timestamp": server_timestamp,
+            "server_frame": server_frame,
+        }
     
     def _create_message(self, message, message_type=None):
         if message_type is None:
