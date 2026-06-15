@@ -34,6 +34,8 @@ AUTOWARE_VEHICLE_MODEL="${AUTOWARE_VEHICLE_MODEL:-sample_vehicle}"
 AUTOWARE_SENSOR_MODEL="${AUTOWARE_SENSOR_MODEL:-awsim_sensor_kit}"
 UB_AUTOWARE_INSTALL_PY_DEPS="${UB_AUTOWARE_INSTALL_PY_DEPS:-1}"
 UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY="${UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY:-1}"
+UB_AUTOWARE_PATCH_CARLA_BRIDGE="${UB_AUTOWARE_PATCH_CARLA_BRIDGE:-1}"
+UB_AUTOWARE_EGO_ONLY_PERCEPTION="${UB_AUTOWARE_EGO_ONLY_PERCEPTION:-1}"
 UB_KEEP_CARLA="${UB_KEEP_CARLA:-0}"
 
 DRY_RUN=0
@@ -57,6 +59,8 @@ Defaults:
   AUTOWARE_SENSOR_MODEL=${AUTOWARE_SENSOR_MODEL}
   UB_AUTOWARE_INSTALL_PY_DEPS=${UB_AUTOWARE_INSTALL_PY_DEPS}
   UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY=${UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY}
+  UB_AUTOWARE_PATCH_CARLA_BRIDGE=${UB_AUTOWARE_PATCH_CARLA_BRIDGE}
+  UB_AUTOWARE_EGO_ONLY_PERCEPTION=${UB_AUTOWARE_EGO_ONLY_PERCEPTION}
 
 Useful overrides:
   BUILD_FOLDER=v1.0.0 $(basename "$0")
@@ -65,6 +69,8 @@ Useful overrides:
   AUTOWARE_CARLA_HOST=<host-ip> $(basename "$0")
   UB_AUTOWARE_INSTALL_PY_DEPS=0 $(basename "$0")
   UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY=0 $(basename "$0")
+  UB_AUTOWARE_PATCH_CARLA_BRIDGE=0 $(basename "$0")
+  UB_AUTOWARE_EGO_ONLY_PERCEPTION=0 $(basename "$0")
   UB_KEEP_CARLA=1 $(basename "$0")
 
 Options:
@@ -160,6 +166,8 @@ Autoware launch arguments:
   carla_map:=${CARLA_MAP}
   install_python_deps:=${UB_AUTOWARE_INSTALL_PY_DEPS}
   carla_top_lidar_only:=${UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY}
+  patch_carla_bridge:=${UB_AUTOWARE_PATCH_CARLA_BRIDGE}
+  ego_only_perception:=${UB_AUTOWARE_EGO_ONLY_PERCEPTION}
 EOF
 }
 
@@ -251,6 +259,7 @@ fi
 if [[ -f /autoware/install/setup.bash ]]; then
   source /autoware/install/setup.bash
 fi
+UB_BACKGROUND_PIDS=\"\"
 if [[ $(shell_quote "${UB_AUTOWARE_INSTALL_PY_DEPS}") == 1 ]]; then
   python3 - <<'PY' || python3 -m pip install --upgrade carla==0.9.16 transforms3d==0.4.2
 import carla
@@ -274,47 +283,257 @@ import os
 from pathlib import Path
 
 sensor_model = os.environ['AUTOWARE_SENSOR_MODEL_FOR_CARLA']
-config_path = Path(
+launch_path = Path(
     f'/autoware/install/{sensor_model}_launch/share/'
-    f'{sensor_model}_launch/config/concatenate_and_time_sync_node.param.yaml'
+    f'{sensor_model}_launch/launch/lidar.launch.xml'
 )
 
-if not config_path.exists():
-    print(f'Warning: CARLA top-LiDAR override skipped; missing {config_path}')
+if not launch_path.exists():
+    print(f'Warning: CARLA top-LiDAR override skipped; missing {launch_path}')
 else:
-    backup_path = config_path.with_suffix(config_path.suffix + '.ub-original')
+    backup_path = launch_path.with_suffix(launch_path.suffix + '.ub-original')
     if not backup_path.exists():
-        backup_path.write_text(config_path.read_text())
-    config_path.write_text(
-        '''/**:
-  ros__parameters:
-    debug_mode: false
-    has_static_tf_only: false
-    rosbag_length: 10.0
-    maximum_queue_size: 5
-    timeout_sec: 0.2
-    is_motion_compensated: false
-    publish_synchronized_pointcloud: true
-    keep_input_frame_in_synchronized_pointcloud: true
-    publish_previous_but_late_pointcloud: false
-    synchronized_pointcloud_postfix: pointcloud
-    input_twist_topic_type: twist
-    # The installed Autoware synchronizer requires at least two inputs.
-    # CARLA currently spawns one LiDAR, so feed the same top cloud twice.
-    input_topics: [
-                    "/sensing/lidar/top/pointcloud_before_sync",
-                    "/sensing/lidar/top/pointcloud_before_sync",
-                ]
-    output_frame: base_link
-    matching_strategy:
-      type: advanced
-      lidar_timestamp_offsets: [0.0, 0.0]
-      lidar_timestamp_noise_window: [0.02, 0.02]
-'''
-    )
-    print(f'Applied CARLA top-LiDAR Autoware override: {config_path}')
+        backup_path.write_text(launch_path.read_text())
+    text = backup_path.read_text()
+    quote = chr(34)
+    old = f'<arg name={quote}use_concat_filter{quote} default={quote}true{quote}/>'
+    new = f'<arg name={quote}use_concat_filter{quote} default={quote}false{quote}/>'
+    if old in text:
+        launch_path.write_text(text.replace(old, new, 1))
+        print(f'Disabled Autoware multi-LiDAR concat filter for CARLA: {launch_path}')
+    elif new in text:
+        print(f'Autoware multi-LiDAR concat filter already disabled for CARLA: {launch_path}')
+    else:
+        print(f'Warning: use_concat_filter default not found in {launch_path}')
+PY
+  python3 - <<'PY' &
+import rclpy
+from rclpy.qos import DurabilityPolicy
+from rclpy.qos import HistoryPolicy
+from rclpy.qos import QoSProfile
+from rclpy.qos import ReliabilityPolicy
+from sensor_msgs.msg import PointCloud2
+
+SOURCE_TOPIC = '/sensing/lidar/top/pointcloud_before_sync'
+OUTPUT_TOPIC = '/sensing/lidar/concatenated/pointcloud'
+
+rclpy.init()
+node = rclpy.create_node('ub_carla_top_lidar_relay')
+qos = QoSProfile(
+    history=HistoryPolicy.KEEP_LAST,
+    depth=10,
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    durability=DurabilityPolicy.VOLATILE,
+)
+publisher = node.create_publisher(PointCloud2, OUTPUT_TOPIC, qos)
+
+def relay(message):
+    publisher.publish(message)
+
+node.create_subscription(PointCloud2, SOURCE_TOPIC, relay, qos)
+node.get_logger().info(f'Relaying {SOURCE_TOPIC} -> {OUTPUT_TOPIC}')
+rclpy.spin(node)
+PY
+  UB_BACKGROUND_PIDS=\"\${UB_BACKGROUND_PIDS} \$!\"
+fi
+if [[ $(shell_quote "${UB_AUTOWARE_PATCH_CARLA_BRIDGE}") == 1 ]]; then
+  python3 - <<'PY'
+from pathlib import Path
+
+source_root = Path('/autoware/build/autoware_carla_interface/src/autoware_carla_interface')
+carla_ros_path = source_root / 'carla_ros.py'
+carla_autoware_path = source_root / 'carla_autoware.py'
+quote = chr(34)
+
+def patch_file(path, replacements):
+    if not path.exists():
+        print(f'Warning: CARLA bridge patch skipped; missing {path}')
+        return
+    backup = path.with_suffix(path.suffix + '.ub-original')
+    if not backup.exists():
+        backup.write_text(path.read_text())
+    text = backup.read_text()
+    changed = False
+    for old, new in replacements:
+        if new in text:
+            continue
+        if old not in text:
+            print(f'Warning: CARLA bridge patch pattern not found in {path}: {old!r}')
+            continue
+        text = text.replace(old, new, 1)
+        changed = True
+    if changed:
+        path.write_text(text)
+        print(f'Applied CARLA bridge runtime patch: {path}')
+
+patch_file(
+    carla_ros_path,
+    [
+        (
+            'from autoware_vehicle_msgs.msg import ControlModeReport\n',
+            'from autoware_vehicle_msgs.msg import ControlModeReport\n'
+            'from autoware_vehicle_msgs.srv import ControlModeCommand\n',
+        ),
+        (
+            '        self.current_control = carla.VehicleControl()\n',
+            '        self.sub_control_mode_override = self.ros2_node.create_subscription(\n'
+            '            ControlModeReport, \'/ub/carla/control_mode\', self.control_mode_override_callback, 1\n'
+            '        )\n'
+            '        self.srv_control_mode = self.ros2_node.create_service(\n'
+            '            ControlModeCommand, \'/control/control_mode_request\', self.control_mode_request_callback\n'
+            '        )\n'
+            '        self.current_control_mode = ControlModeReport.MANUAL\n'
+            '        self.current_control = carla.VehicleControl(brake=1.0, hand_brake=True)\n'
+            '        self.received_control_cmd = False\n',
+        ),
+        (
+            '    def control_callback(self, in_cmd):\n'
+            ,
+            '    def control_mode_override_callback(self, msg):\n'
+            '        self.current_control_mode = msg.mode\n\n'
+            '    def control_mode_request_callback(self, request, response):\n'
+            '        # Accept Autoware operation-mode control ownership requests.\n'
+            '        if request.mode == ControlModeCommand.Request.AUTONOMOUS:\n'
+            '            self.current_control_mode = ControlModeReport.AUTONOMOUS\n'
+            '        elif request.mode == ControlModeCommand.Request.MANUAL:\n'
+            '            self.current_control_mode = ControlModeReport.MANUAL\n'
+            '            self.current_control = carla.VehicleControl(brake=1.0, hand_brake=True)\n'
+            '        else:\n'
+            '            self.current_control_mode = request.mode\n'
+            '        response.success = True\n'
+            '        return response\n\n'
+            '    def control_callback(self, in_cmd):\n'
+        ),
+        (
+            '        out_cmd = carla.VehicleControl()\n',
+            '        if self.current_control_mode != ControlModeReport.AUTONOMOUS:\n'
+            '            return\n'
+            '        out_cmd = carla.VehicleControl()\n',
+        ),
+        (
+            '        out_cmd.brake = in_cmd.actuation.brake_cmd\n'
+            '        self.current_control = out_cmd\n',
+            '        out_cmd.brake = in_cmd.actuation.brake_cmd\n'
+            '        out_cmd.hand_brake = False\n'
+            '        self.received_control_cmd = True\n'
+            '        self.current_control = out_cmd\n',
+        ),
+        (
+            f'            ControlModeReport, {quote}/vehicle/status/control_mode{quote}, 1\n',
+            f'            ControlModeReport, {quote}/ub/carla/status/control_mode_raw{quote}, 1\n',
+        ),
+        (
+            '        out_ctrl_mode.stamp = out_vel_state.header.stamp\n'
+            '        out_ctrl_mode.mode = ControlModeReport.AUTONOMOUS\n',
+            '        out_ctrl_mode.stamp = out_vel_state.header.stamp\n'
+            '        out_ctrl_mode.mode = self.current_control_mode\n',
+        ),
+    ],
+)
+
+patch_file(
+    carla_autoware_path,
+    [
+        (
+            '        self.interface.physics_control = self.ego_actor.get_physics_control()\n\n'
+            '        self.sensor_wrapper = SensorWrapper(self.interface)\n',
+            '        self.interface.physics_control = self.ego_actor.get_physics_control()\n'
+            '        self.ego_actor.set_target_velocity(carla.Vector3D(0.0, 0.0, 0.0))\n'
+            '        self.ego_actor.set_target_angular_velocity(carla.Vector3D(0.0, 0.0, 0.0))\n'
+            '        self.ego_actor.apply_control(carla.VehicleControl(brake=1.0, hand_brake=True))\n\n'
+            '        self.sensor_wrapper = SensorWrapper(self.interface)\n',
+        ),
+    ],
+)
 PY
 fi
+if [[ $(shell_quote "${UB_AUTOWARE_EGO_ONLY_PERCEPTION}") == 1 ]]; then
+  python3 - <<'PY'
+from pathlib import Path
+
+path = Path('/autoware/install/autoware_launch/share/autoware_launch/launch/autoware.launch.xml')
+if not path.exists():
+    print(f'Warning: ego-only perception patch skipped; missing {path}')
+else:
+    backup = path.with_suffix(path.suffix + '.ub-original')
+    if not backup.exists():
+        backup.write_text(path.read_text())
+    text = backup.read_text()
+    quote = chr(34)
+    dollar = chr(36)
+    data_path_arg = (
+        f'      <arg name={quote}data_path{quote} '
+        f'value={quote}{dollar}(var data_path){quote}/>\n'
+    )
+    empty_objects_arg = (
+        f'      <arg name={quote}use_empty_dynamic_object_publisher{quote} '
+        f'value={quote}true{quote}/>\n'
+    )
+    if empty_objects_arg in text:
+        path.write_text(text)
+        print(f'Ego-only empty object publisher already enabled: {path}')
+    elif data_path_arg in text:
+        path.write_text(text.replace(data_path_arg, data_path_arg + empty_objects_arg, 1))
+        print(f'Enabled ego-only empty object publisher: {path}')
+    else:
+        print(f'Warning: perception include data_path arg not found in {path}')
+PY
+fi
+python3 - <<'PY' &
+import rclpy
+from autoware_vehicle_msgs.msg import ControlModeReport
+from autoware_vehicle_msgs.srv import ControlModeCommand
+from tier4_system_msgs.msg import OperationModeAvailability
+
+rclpy.init()
+node = rclpy.create_node('ub_carla_control_mode_shim')
+mode = ControlModeReport.MANUAL
+status_pub = node.create_publisher(ControlModeReport, '/vehicle/status/control_mode', 1)
+override_pub = node.create_publisher(ControlModeReport, '/ub/carla/control_mode', 1)
+availability_pub = node.create_publisher(
+    OperationModeAvailability, '/system/operation_mode/availability', 1
+)
+
+def publish_mode():
+    msg = ControlModeReport()
+    msg.stamp = node.get_clock().now().to_msg()
+    msg.mode = mode
+    status_pub.publish(msg)
+    override_pub.publish(msg)
+
+    availability = OperationModeAvailability()
+    availability.stamp = msg.stamp
+    availability.stop = True
+    availability.autonomous = True
+    availability.local = True
+    availability.remote = True
+    availability.emergency_stop = True
+    availability.comfortable_stop = False
+    availability.pull_over = False
+    availability_pub.publish(availability)
+
+def on_request(request, response):
+    global mode
+    if request.mode == ControlModeCommand.Request.AUTONOMOUS:
+        mode = ControlModeReport.AUTONOMOUS
+    elif request.mode == ControlModeCommand.Request.MANUAL:
+        mode = ControlModeReport.MANUAL
+    else:
+        mode = request.mode
+    publish_mode()
+    response.success = True
+    return response
+
+node.create_service(ControlModeCommand, '/control/control_mode_request', on_request)
+node.create_timer(0.05, publish_mode)
+node.get_logger().info(
+    'Providing /control/control_mode_request, /vehicle/status/control_mode, '
+    'and simulator operation-mode availability'
+)
+rclpy.spin(node)
+PY
+UB_BACKGROUND_PIDS=\"\${UB_BACKGROUND_PIDS} \$!\"
+trap 'for pid in \${UB_BACKGROUND_PIDS:-}; do kill \${pid} 2>/dev/null || true; done' EXIT
 ros2 launch autoware_launch e2e_simulator.launch.xml \\
   map_path:=$(shell_quote "${AUTOWARE_MAP_PATH}") \\
   vehicle_model:=$(shell_quote "${AUTOWARE_VEHICLE_MODEL}") \\
