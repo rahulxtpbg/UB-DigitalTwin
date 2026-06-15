@@ -14,11 +14,19 @@ from carla.command import SpawnActor, SetAutopilot, FutureActor, DestroyActor
 
 import argparse
 import logging
+import os
 import threading
 from numpy import random
 import time
 
 from telemetry import Telemetry
+
+
+PRESERVED_CLEANUP_ROLES = (
+    "hero",
+    "external_ego",
+    os.environ.get("UB_MANUAL_ROLE_NAME", "manual_vehicle"),
+)
 
 
 def get_actor_blueprints(world, bp_filter, generation):
@@ -47,26 +55,53 @@ def get_actor_blueprints(world, bp_filter, generation):
     
 class TrafficTelemetryPublisher(Telemetry):
     TRAFFIC_MESSAGE_TYPE = 2
-    PUBLISH_INTERVAL = 0.05 # 20 Hz
+    PUBLISH_INTERVAL = 1.0 / 30.0
 
     def __init__(self, world):
         super().__init__()
+        publish_hz = self._get_publish_hz()
+        self.PUBLISH_INTERVAL = 1.0 / publish_hz
         self._world = world
         self._world_lock = threading.Lock()
+        self._manual_role_name = os.environ.get("UB_MANUAL_ROLE_NAME", "manual_vehicle")
+        self._logged_manual_actor_ids = set()
+        print(f"[!] Traffic telemetry publish rate: {publish_hz:.1f} Hz")
+
+    def _get_publish_hz(self):
+        raw_value = os.environ.get("UB_TRAFFIC_PUBLISH_HZ", "60")
+        try:
+            publish_hz = float(raw_value)
+        except ValueError:
+            print(f"[x] Invalid UB_TRAFFIC_PUBLISH_HZ={raw_value!r}; using 60")
+            return 60.0
+        if publish_hz <= 0.0:
+            print(f"[x] Invalid UB_TRAFFIC_PUBLISH_HZ={raw_value!r}; using 60")
+            return 60.0
+        return publish_hz
 
     def handle_fetch_telemetry_data(self):
         with self._world_lock:
+            snapshot = self._world.get_snapshot()
             vehicles = self._world.get_actors().filter("vehicle.*")
 
+        server_timestamp = float(snapshot.timestamp.elapsed_seconds)
+        server_frame = int(snapshot.frame)
         messages = []
         for vehicle in vehicles:
-            if vehicle.attributes.get("role_name") == "hero":
+            role_name = vehicle.attributes.get("role_name", "")
+            if role_name in ("hero", "external_ego"):
                 continue
             transform = vehicle.get_transform()
+            if role_name == self._manual_role_name and vehicle.id not in self._logged_manual_actor_ids:
+                print(f"[!] Publishing manual traffic actor id={vehicle.id} role_name={role_name}")
+                self._logged_manual_actor_ids.add(vehicle.id)
             messages.append({
                 "id": str(vehicle.id),
+                "role_name": role_name,
                 "blueprint": vehicle.type_id,
                 "color": vehicle.attributes.get("color", "255,255,255"),
+                "server_timestamp": server_timestamp,
+                "server_frame": server_frame,
                 "location": {
                     "x": transform.location.x, 
                     "y": transform.location.y, 
@@ -74,7 +109,11 @@ class TrafficTelemetryPublisher(Telemetry):
                     },
                 "yaw": transform.rotation.yaw
             })
-        return {"vehicles": messages}
+        return {
+            "vehicles": messages,
+            "server_timestamp": server_timestamp,
+            "server_frame": server_frame,
+        }
     
     def _create_message(self, message, message_type=None):
         if message_type is None:
@@ -247,10 +286,13 @@ def main():
             client.apply_batch([DestroyActor(x) for x in existing_walkers])
             stale_count += len(existing_walkers)
         if len(existing_vehicles) > 0:
-            non_hero = [v for v in existing_vehicles if v.attributes.get("role_name") != "hero"]
-            if non_hero:
-                client.apply_batch([DestroyActor(x) for x in non_hero])
-                stale_count += len(non_hero)
+            managed_traffic = [
+                v for v in existing_vehicles
+                if v.attributes.get("role_name") not in PRESERVED_CLEANUP_ROLES
+            ]
+            if managed_traffic:
+                client.apply_batch([DestroyActor(x) for x in managed_traffic])
+                stale_count += len(managed_traffic)
         if stale_count > 0:
             logging.info('Cleaned up %d stale actors from previous runs', stale_count)
             time.sleep(0.5)
