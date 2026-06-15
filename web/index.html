@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="UB-DigitalTwin is an open-source digital twin framework for validating Connected and Autonomous Vehicles (CAVs). It integrates Autoware Universe, MathWorks RoadRunner, SUMO, and CARLA into a synchronized co-simulation environment.">
+  <meta name="keywords" content="Digital Twin, CAV, Connected and Autonomous Vehicles, AV Simulation, Autoware, RoadRunner, SUMO, CARLA, Three-Way Co-Simulation, Mixed Reality, Digital Elevation Model, Gaussian Splatting">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UB-DigitalTwin: A Practical Guide for Connected Autonomous Vehicle Simulation</title>
+
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+
+    gtag('config', 'G-PYVRSFMDRL');
+  </script>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" href="./static/images/favicon.svg">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+</head>
+<body>
+
+<nav class="navbar" role="navigation" aria-label="main navigation">
+  <div class="navbar-brand">
+    <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+    </a>
+  </div>
+  <div class="navbar-menu">
+    <div class="navbar-start" style="flex-grow: 1; justify-content: center;">
+      <a class="navbar-item" href="https://github.com/ub-cavas">
+      <span class="icon">
+          <i class="fas fa-home"></i>
+      </span>
+      </a>
+
+      <div class="navbar-item has-dropdown is-hoverable">
+        <a class="navbar-link">
+          Resources
+        </a>
+        <div class="navbar-dropdown">
+          <a class="navbar-item" href="https://arxiv.org/abs/2507.XXXXX">
+            Research Paper (arXiv)
+          </a>
+          <a class="navbar-item" href="paper_overview.md">
+            Overview
+          </a>
+          <a class="navbar-item" href="repository_overview.md">
+            Repository Reference
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</nav>
+
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">Constructing a Digital Twin of a Physical Testbed: A Practical Guide for Connected Autonomous Vehicle Simulation</h1>
+
+          <p class="is-size-5 publication-authors">
+            <a href="https://github.com/oakley-Thomas"><strong>Oakley Thomas</a><sup>*</sup></strong>,</p>
+          <p class="is-size-5 publication-authors">
+            <a href="https://github.com/rahulxtpbg"><strong>Rahul Gedela</a><sup>*</sup></strong>,</p>
+          <p class="is-size-5 publication-authors">
+            <a href="https://github.com/anuraghruday"><strong>Anurag Hruday Pirangi</a><sup>*</sup></strong>,</p>
+          <p class="is-size-5 publication-authors">
+            <strong>Jee Heum Rah</strong>, <strong>Yunchang Kum</strong>, <strong>Steven Korzelius</strong>,
+            <strong>Chaozhe R. He</strong>, <strong>Adel W. Sadek</strong>, <strong>Chunming Qiao</strong>
+          </p>
+
+          <div class="is-size-7 publication-authors has-text-centered">
+            <em>* Equal contribution<br>
+            Department of Computer Science and Engineering, Mechanical and Aerospace Engineering,
+            and Civil, Structural and Environmental Engineering<br>
+            University at Buffalo, Buffalo, NY, USA</em>
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <!-- PDF Link. -->
+              <span class="link-block">
+                <a href="https://arxiv.org/pdf/2011.12948"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                  </span>
+                  <span>Paper</span>
+                </a>
+              </span>
+              <!-- Video Link. -->
+              <span class="link-block">
+                <a href="https://www.youtube.com/watch?v=2xho67XAREI&list=PLd_ftJHJy1EAdH7Iu98aQA5B3Zejw5wrU&index=1"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-youtube"></i>
+                  </span>
+                  <span>Video</span>
+                </a>
+              </span>
+              <!-- Code Link. -->
+              <span class="link-block">
+                <a href="https://github.com/ub-cavas/UB-DigitalTwin"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                  </a>
+              </span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <video id="teaser" autoplay muted loop playsinline height="100%">
+        <source src="./static/videos/teaser.mp4"
+                type="video/mp4">
+      </video>
+      <h2 class="subtitle has-text-centered">
+        A synchronized co-simulation of Autoware, CARLA, and SUMO.
+      </h2>
+    </div>
+  </div>
+</section>
+
+
+<section class="hero is-light is-small">
+  <div class="hero-body">
+    <div class="container">
+      <div id="results-carousel" class="carousel results-carousel">
+        <div class="item item-steve">
+          <video poster="" id="steve" autoplay controls muted loop playsinline height="100%">
+            <source src="./static/videos/steve.mp4"
+                    type="video/mp4">
+          </video>
+        </div>
+        <div class="item item-chair-tp">
+          <video poster="" id="chair-tp" autoplay controls muted loop playsinline height="100%">
+            <source src="./static/videos/chair-tp.mp4"
+                    type="video/mp4">
+          </video>
+        </div>
+        <div class="item item-shiba">
+          <video poster="" id="shiba" autoplay controls muted loop playsinline height="100%">
+            <source src="./static/videos/shiba.mp4"
+                    type="video/mp4">
+          </video>
+        </div>
+        <div class="item item-fullbody">
+          <video poster="" id="fullbody" autoplay controls muted loop playsinline height="100%">
+            <source src="./static/videos/fullbody.mp4"
+                    type="video/mp4">
+          </video>
+        </div>
+        <div class="item item-blueshirt">
+          <video poster="" id="blueshirt" autoplay controls muted loop playsinline height="100%">
+            <source src="./static/videos/blueshirt.mp4"
+                    type="video/mp4">
+          </video>
+        </div>
+        <div class="item item-mask">
+          <video poster="" id="mask" autoplay controls muted loop playsinline height="100%">
+            <source src="./static/videos/mask.mp4"
+                    type="video/mp4">
+          </video>
+        </div>
+        <div class="item item-coffee">
+          <video poster="" id="coffee" autoplay controls muted loop playsinline height="100%">
+            <source src="./static/videos/coffee.mp4"
+                    type="video/mp4">
+          </video>
+        </div>
+        <div class="item item-toby">
+          <video poster="" id="toby" autoplay controls muted loop playsinline height="100%">
+            <source src="./static/videos/toby2.mp4"
+                    type="video/mp4">
+          </video>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            Constructing a Digital Twin of a Physical Testbed: A Practical Guide for Connected Autonomous Vehicle Simulation
+          </p>
+          <p>
+            This work presents an open-source digital twin framework that tightly integrates four
+            pillars — Autoware Universe, MathWorks RoadRunner, SUMO, and CARLA — into a synchronized
+            co-simulation environment for validating Connected and Autonomous Vehicles (CAVs). We
+            demonstrate how to reconstruct high-fidelity road networks using GIS data, LiDAR point
+            clouds, and photogrammetry-derived textured meshes. Our architecture resolves the
+            double-tick timing conflict inherent in three-way co-simulation through an external tick
+            master mechanism, ensuring deterministic, lock-step time advancement with zero drift.
+          </p>
+          <p>
+            We evaluate our method against a ground-truth LiDAR scan captured at the University at
+            Buffalo proving ground, achieving strong geometric correspondence with an ICP RMSE of
+            0.635 meters (mean cloud-to-cloud distance: 0.183 meters). Synchronization validation
+            across 5,000 simulation steps confirms that our fix eliminates 230 seconds of timestamp
+            drift observed in prior approaches. This framework provides a reproducible, site-agnostic
+            pipeline for building digital twins that bridge the gap between simulation-based testing
+            and physical deployment.
+          </p>
+        </div>
+      </div>
+    </div>
+    <!--/ Abstract. -->
+
+    <!-- Paper video. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Video</h2>
+        <div class="publication-video">
+          <iframe src="https://www.youtube.com/embed/2xho67XAREI"
+                  frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        </div>
+      </div>
+    </div>
+    <!--/ Paper video. -->
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+
+    <div class="columns is-centered">
+
+      <!-- Visual Effects. -->
+      <div class="column">
+        <div class="content">
+          <h2 class="title is-3">Visual Effects</h2>
+          <p>
+            Using <i>nerfies</i> you can create fun visual effects. This Dolly zoom effect
+            would be impossible without nerfies since it would require going through a wall.
+          </p>
+          <video id="dollyzoom" autoplay controls muted loop playsinline height="100%">
+            <source src="./static/videos/dollyzoom-stacked.mp4"
+                    type="video/mp4">
+          </video>
+        </div>
+      </div>
+      <!--/ Visual Effects. -->
+
+      <!-- Matting. -->
+      <div class="column">
+        <h2 class="title is-3">Matting</h2>
+        <div class="columns is-centered">
+          <div class="column content">
+            <p>
+              As a byproduct of our method, we can also solve the matting problem by ignoring
+              samples that fall outside of a bounding box during rendering.
+            </p>
+            <video id="matting-video" controls playsinline height="100%">
+              <source src="./static/videos/matting.mp4"
+                      type="video/mp4">
+            </video>
+          </div>
+
+        </div>
+      </div>
+    </div>
+    <!--/ Matting. -->
+
+    <!-- Animation. -->
+    <div class="columns is-centered">
+      <div class="column is-full-width">
+        <h2 class="title is-3">Animation</h2>
+
+        <!-- Interpolating. -->
+        <h3 class="title is-4">Interpolating states</h3>
+        <div class="content has-text-justified">
+          <p>
+            We can also animate the scene by interpolating the deformation latent codes of two input
+            frames. Use the slider here to linearly interpolate between the left frame and the right
+            frame.
+          </p>
+        </div>
+        <div class="columns is-vcentered interpolation-panel">
+          <div class="column is-3 has-text-centered">
+            <img src="./static/images/interpolate_start.jpg"
+                 class="interpolation-image"
+                 alt="Interpolate start reference image."/>
+            <p>Start Frame</p>
+          </div>
+          <div class="column interpolation-video-column">
+            <div id="interpolation-image-wrapper">
+              Loading...
+            </div>
+            <input class="slider is-fullwidth is-large is-info"
+                   id="interpolation-slider"
+                   step="1" min="0" max="100" value="0" type="range">
+          </div>
+          <div class="column is-3 has-text-centered">
+            <img src="./static/images/interpolate_end.jpg"
+                 class="interpolation-image"
+                 alt="Interpolation end reference image."/>
+            <p class="is-bold">End Frame</p>
+          </div>
+        </div>
+        <br/>
+        <!--/ Interpolating. -->
+
+        <!-- Re-rendering. -->
+        <h3 class="title is-4">Re-rendering the input video</h3>
+        <div class="content has-text-justified">
+          <p>
+            Using <span class="dnerf">Nerfies</span>, you can re-render a video from a novel
+            viewpoint such as a stabilized camera by playing back the training deformations.
+          </p>
+        </div>
+        <div class="content has-text-centered">
+          <video id="replay-video"
+                 controls
+                 muted
+                 preload
+                 playsinline
+                 width="75%">
+            <source src="./static/videos/replay.mp4"
+                    type="video/mp4">
+          </video>
+        </div>
+        <!--/ Re-rendering. -->
+
+      </div>
+    </div>
+    <!--/ Animation. -->
+
+
+    <!-- Related Projects. -->
+    <div class="columns is-centered">
+      <div class="column is-full-width">
+        <h2 class="title is-3">Related Links</h2>
+
+        <div class="content has-text-justified">
+          <p>
+            The UB-DigitalTwin framework builds upon several foundational projects in autonomous driving simulation:
+          </p>
+          <p>
+            <a href="https://github.com/autowarefoundation/autoware_universe">Autoware</a> provides the perception, planning, and control stack for autonomous vehicles. Our framework uses a modified <code>ub_autoware_carla_interface</code> that implements time-follower mode to synchronize with CARLA's external simulation clock.
+          </p>
+          <p>
+            <a href="https://www.mathworks.com/products/roadrunner.html">MathWorks RoadRunner</a> enables high-fidelity vehicle dynamics simulation for testing control algorithms under various vehicle models and road conditions.
+          </p>
+          <p>
+            <a href="https://sumo.dlr.de/docs/">SUMO (Simulation of Urban MObility)</a> provides a traffic simulator with support for microsimulation of complex urban environments, used here to generate controllable NPC scenarios.
+          </p>
+          <p>
+            <a href="https://carla.org/">CARLA</a> is an open-source autonomous driving simulator that offers photo-realistic rendering and supports a wide range of sensor configurations. Our UB-DigitalTwin framework includes the UBAutonomousProvingGrounds map with custom assets.
+          </p>
+          <p>
+            For mixed reality testing, see <a href="https://github.com/ub-cavas/UB-MR">UB-MR</a>, which provides a Unity-based client for bridging physical and virtual driving scenarios via UDP communication.
+          </p>
+          <p>
+            Additional related projects in the UB-CAVAS organization include <a href="https://github.com/ub-cavas/AutowareUniverse">AutowareUniverse</a> (UB fork of the base AV stack), and <a href="https://github.com/ub-cavas/ub-lincoln-docker">ub-lincoln-docker</a> (physical testbed Docker stack for the Lincoln MKZ).
+          </p>
+        </div>
+      </div>
+    </div>
+    <!--/ Related Projects. -->
+
+  </div>
+</section>
+
+
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <pre><code>@misc{gedela2026ubdigitaltwin,
+  author       = {Thomas, Oakley and Gedela, Rahul and Pirangi, Anurag Hruday and Rah, Jee Heum and Kum, Yunchang and Korzelius, Steven and He, Chaozhe R. and Sadek, Adel W. and Qiao, Chunming},
+  title        = {UB-DigitalTwin: A Framework for Co-Simulation of Connected Autonomous Vehicles},
+  year        = {2026},
+  publisher    = {GitHub},
+  journal      = {GitHub Repository},
+  url          = {https://github.com/ub-cavas/UB-DigitalTwin}
+}</code></pre>
+    <p><small>Citation for the code repository. For a formal paper publication, please refer to the official arXiv entry when available.</small></p>
+  </div>
+</section>
+
+
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <!-- PDF Paper Link (when available) -->
+      <a class="icon-link"
+         href="https://arxiv.org/abs/2507.XXXXX">
+        <i class="fas fa-file-pdf"></i>
+      </a>
+      <a class="icon-link"
+         href="https://github.com/ub-cavas/UB-DigitalTwin"
+         target="_blank"
+         rel="noopener">
+        <i class="fab fa-github"></i>
+      </a>
+    </div>
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+          <p>
+            This website is licensed under a <a rel="license"
+                                                href="http://creativecommons.org/licenses/by-sa/4.0/">Creative
+            Commons Attribution-ShareAlike 4.0 International License</a>.
+          </p>
+          <p>
+            This means you are free to borrow the <a
+              href="https://github.com/nerfies/nerfies.github.io">source code</a> of this website,
+            we just ask that you link back to this page in the footer.
+            Please remember to remove the analytics code included in the header of the website which
+            you do not want on your website.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
