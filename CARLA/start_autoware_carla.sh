@@ -32,14 +32,25 @@ AUTOWARE_SERVICE="${AUTOWARE_SERVICE:-autoware}"
 AUTOWARE_CARLA_HOST="${AUTOWARE_CARLA_HOST:-127.0.0.1}"
 AUTOWARE_VEHICLE_MODEL="${AUTOWARE_VEHICLE_MODEL:-sample_vehicle}"
 AUTOWARE_SENSOR_MODEL="${AUTOWARE_SENSOR_MODEL:-awsim_sensor_kit}"
+AUTOWARE_RVIZ="${AUTOWARE_RVIZ:-}"
+AUTOWARE_PLANNING_MODULE_PRESET="${AUTOWARE_PLANNING_MODULE_PRESET:-}"
 UB_AUTOWARE_INSTALL_PY_DEPS="${UB_AUTOWARE_INSTALL_PY_DEPS:-1}"
-UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY="${UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY:-1}"
-UB_AUTOWARE_PATCH_CARLA_BRIDGE="${UB_AUTOWARE_PATCH_CARLA_BRIDGE:-1}"
-UB_AUTOWARE_EGO_ONLY_PERCEPTION="${UB_AUTOWARE_EGO_ONLY_PERCEPTION:-1}"
+UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY="${UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY:-0}"
+UB_AUTOWARE_PATCH_CARLA_BRIDGE="${UB_AUTOWARE_PATCH_CARLA_BRIDGE:-0}"
+UB_AUTOWARE_EGO_ONLY_PERCEPTION="${UB_AUTOWARE_EGO_ONLY_PERCEPTION:-0}"
+UB_AUTOWARE_CARLA_PLANNING_PRESET="${UB_AUTOWARE_CARLA_PLANNING_PRESET:-0}"
+UB_AUTOWARE_CONTROL_MODE_SHIM="${UB_AUTOWARE_CONTROL_MODE_SHIM:-0}"
+UB_AUTOWARE_RESTORE_RUNTIME_PATCHES="${UB_AUTOWARE_RESTORE_RUNTIME_PATCHES:-1}"
 UB_KEEP_CARLA="${UB_KEEP_CARLA:-0}"
+UB_KEEP_AUTOWARE_ROS="${UB_KEEP_AUTOWARE_ROS:-0}"
+UB_AUTOWARE_CLEAN_STALE_PROCESSES="${UB_AUTOWARE_CLEAN_STALE_PROCESSES:-1}"
+UB_AUTOWARE_HOST_CONFIG_DDS="${UB_AUTOWARE_HOST_CONFIG_DDS:-1}"
+UB_AUTOWARE_RMW_IMPLEMENTATION="${UB_AUTOWARE_RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}"
+UB_AUTOWARE_CYCLONEDDS_URI="${UB_AUTOWARE_CYCLONEDDS_URI:-file:///resources/cyclonedds.xml}"
 
 DRY_RUN=0
 CARLA_STARTED=0
+AUTOWARE_LAUNCH_STARTED=0
 
 usage() {
   cat <<EOF
@@ -57,21 +68,41 @@ Defaults:
   AUTOWARE_CARLA_HOST=${AUTOWARE_CARLA_HOST}
   AUTOWARE_VEHICLE_MODEL=${AUTOWARE_VEHICLE_MODEL}
   AUTOWARE_SENSOR_MODEL=${AUTOWARE_SENSOR_MODEL}
+  AUTOWARE_RVIZ=${AUTOWARE_RVIZ:-<manual launch default>}
+  AUTOWARE_PLANNING_MODULE_PRESET=${AUTOWARE_PLANNING_MODULE_PRESET:-<manual launch default>}
   UB_AUTOWARE_INSTALL_PY_DEPS=${UB_AUTOWARE_INSTALL_PY_DEPS}
   UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY=${UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY}
   UB_AUTOWARE_PATCH_CARLA_BRIDGE=${UB_AUTOWARE_PATCH_CARLA_BRIDGE}
   UB_AUTOWARE_EGO_ONLY_PERCEPTION=${UB_AUTOWARE_EGO_ONLY_PERCEPTION}
+  UB_AUTOWARE_CARLA_PLANNING_PRESET=${UB_AUTOWARE_CARLA_PLANNING_PRESET}
+  UB_AUTOWARE_CONTROL_MODE_SHIM=${UB_AUTOWARE_CONTROL_MODE_SHIM}
+  UB_AUTOWARE_RESTORE_RUNTIME_PATCHES=${UB_AUTOWARE_RESTORE_RUNTIME_PATCHES}
+  UB_AUTOWARE_CLEAN_STALE_PROCESSES=${UB_AUTOWARE_CLEAN_STALE_PROCESSES}
+  UB_AUTOWARE_HOST_CONFIG_DDS=${UB_AUTOWARE_HOST_CONFIG_DDS}
+  UB_AUTOWARE_RMW_IMPLEMENTATION=${UB_AUTOWARE_RMW_IMPLEMENTATION}
+  UB_AUTOWARE_CYCLONEDDS_URI=${UB_AUTOWARE_CYCLONEDDS_URI}
+  UB_KEEP_AUTOWARE_ROS=${UB_KEEP_AUTOWARE_ROS}
 
 Useful overrides:
   BUILD_FOLDER=v1.0.0 $(basename "$0")
   CARLA_ARGS="-prefernvidia -quality-level=Epic" $(basename "$0")
   AUTOWARE_SERVICE=<compose-service> $(basename "$0")
   AUTOWARE_CARLA_HOST=<host-ip> $(basename "$0")
+  AUTOWARE_RVIZ=false $(basename "$0")
+  AUTOWARE_PLANNING_MODULE_PRESET=ub_carla $(basename "$0")
   UB_AUTOWARE_INSTALL_PY_DEPS=0 $(basename "$0")
-  UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY=0 $(basename "$0")
-  UB_AUTOWARE_PATCH_CARLA_BRIDGE=0 $(basename "$0")
-  UB_AUTOWARE_EGO_ONLY_PERCEPTION=0 $(basename "$0")
+  UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY=1 $(basename "$0")
+  UB_AUTOWARE_PATCH_CARLA_BRIDGE=1 $(basename "$0")
+  UB_AUTOWARE_EGO_ONLY_PERCEPTION=1 $(basename "$0")
+  UB_AUTOWARE_CARLA_PLANNING_PRESET=1 $(basename "$0")
+  UB_AUTOWARE_CONTROL_MODE_SHIM=1 $(basename "$0")
+  UB_AUTOWARE_RESTORE_RUNTIME_PATCHES=0 $(basename "$0")
+  UB_AUTOWARE_CLEAN_STALE_PROCESSES=0 $(basename "$0")
+  UB_AUTOWARE_HOST_CONFIG_DDS=0 $(basename "$0")
+  UB_AUTOWARE_RMW_IMPLEMENTATION=rmw_cyclonedds_cpp $(basename "$0")
+  UB_AUTOWARE_CYCLONEDDS_URI=file:///resources/cyclonedds.xml $(basename "$0")
   UB_KEEP_CARLA=1 $(basename "$0")
+  UB_KEEP_AUTOWARE_ROS=1 $(basename "$0")
 
 Options:
   --dry-run  Validate prerequisites and print the commands without starting CARLA.
@@ -154,6 +185,7 @@ Dry run passed. The launcher would run:
   docker compose up --build -d carla redis map-loader
 
   cd ${AUTOWARE_DOCKER_DIR}
+  ../scripts/host_config_dds.bash  # skipped with a warning if sudo is not already available
   docker compose up -d ${AUTOWARE_SERVICE}
   docker compose exec ${AUTOWARE_SERVICE} bash -lc 'ros2 launch autoware_launch e2e_simulator.launch.xml ...'
 
@@ -164,15 +196,118 @@ Autoware launch arguments:
   simulator_type:=carla
   host:=${AUTOWARE_CARLA_HOST}
   carla_map:=${CARLA_MAP}
+  rviz:=${AUTOWARE_RVIZ:-<omitted; manual launch default>}
+  planning_module_preset:=${AUTOWARE_PLANNING_MODULE_PRESET:-<omitted; manual launch default>}
   install_python_deps:=${UB_AUTOWARE_INSTALL_PY_DEPS}
   carla_top_lidar_only:=${UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY}
   patch_carla_bridge:=${UB_AUTOWARE_PATCH_CARLA_BRIDGE}
   ego_only_perception:=${UB_AUTOWARE_EGO_ONLY_PERCEPTION}
+  carla_planning_preset:=${UB_AUTOWARE_CARLA_PLANNING_PRESET}
+  control_mode_shim:=${UB_AUTOWARE_CONTROL_MODE_SHIM}
+  restore_runtime_patches:=${UB_AUTOWARE_RESTORE_RUNTIME_PATCHES}
+  clean_stale_processes:=${UB_AUTOWARE_CLEAN_STALE_PROCESSES}
+  host_config_dds:=${UB_AUTOWARE_HOST_CONFIG_DDS}
+  rmw_implementation:=${UB_AUTOWARE_RMW_IMPLEMENTATION}
+  cyclonedds_uri:=${UB_AUTOWARE_CYCLONEDDS_URI}
 EOF
+}
+
+cleanup_autoware_launch_processes() {
+  local message="${1:-Cleaning Autoware ROS launch processes.}"
+
+  cd "${AUTOWARE_DOCKER_DIR}"
+  if [[ -z "$(docker compose ps -q "${AUTOWARE_SERVICE}" 2>/dev/null || true)" ]]; then
+    return 0
+  fi
+
+  echo "${message}"
+  docker compose exec -T "${AUTOWARE_SERVICE}" bash -lc 'python3 - <<'"'"'PY'"'"'
+import os
+import signal
+import time
+
+patterns = [
+    "ros2 launch autoware_launch e2e_simulator.launch.xml",
+    "/autoware/install/autoware_carla_interface/lib/autoware_carla_interface/autoware_carla_interface",
+    "/opt/ros/humble/lib/rclcpp_components/component_container",
+    "/opt/ros/humble/lib/rclcpp_components/component_container_mt",
+    "/opt/ros/humble/lib/rviz2/rviz2",
+    "/autoware/install/autoware_default_adapi/lib/autoware_default_adapi/web_server.py",
+    "/autoware/install/autoware_adapi_adaptors/lib/autoware_adapi_adaptors/initial_pose_adaptor_node",
+    "/autoware/install/autoware_adapi_adaptors/lib/autoware_adapi_adaptors/routing_adaptor_node",
+    "/autoware/install/autoware_automatic_pose_initializer/lib/autoware_automatic_pose_initializer/autoware_automatic_pose_initializer_node",
+    "/autoware/install/autoware_stop_filter/lib/autoware_stop_filter/autoware_stop_filter_node",
+    "/autoware/install/autoware_pose_initializer/lib/autoware_pose_initializer/autoware_pose_initializer_node",
+    "/autoware/install/autoware_topic_state_monitor/lib/autoware_topic_state_monitor/autoware_topic_state_monitor_node",
+    "/autoware/install/autoware_processing_time_checker/lib/autoware_processing_time_checker/processing_time_checker_node",
+    "/autoware/install/autoware_service_log_checker/lib/autoware_service_log_checker/service_log_checker_node",
+    "/autoware/install/autoware_map_hash_generator/lib/autoware_map_hash_generator/map_hash_generator",
+    "/autoware/install/autoware_goal_pose_visualizer/lib/autoware_goal_pose_visualizer/goal_pose_visualizer",
+    "/autoware/install/autoware_external_velocity_limit_selector/lib/autoware_external_velocity_limit_selector/external_velocity_limit_selector",
+    "/autoware/install/autoware_planning_validator/lib/autoware_planning_validator/planning_validator_node",
+    "/autoware/install/autoware_control_validator/lib/autoware_control_validator/control_validator_node",
+    "/autoware/install/autoware_remaining_distance_time_calculator/lib/autoware_remaining_distance_time_calculator/autoware_remaining_distance_time_calculator_node",
+    "/autoware/install/autoware_vehicle_cmd_gate/lib/autoware_vehicle_cmd_gate/vehicle_cmd_gate",
+    "/autoware/install/autoware_raw_vehicle_cmd_converter/lib/autoware_raw_vehicle_cmd_converter/autoware_raw_vehicle_cmd_converter_node",
+    "/autoware/install/autoware_gyro_odometer/lib/autoware_gyro_odometer/autoware_gyro_odometer_node",
+    "/autoware/install/autoware_ndt_scan_matcher/lib/autoware_ndt_scan_matcher/autoware_ndt_scan_matcher_node",
+    "/autoware/install/autoware_ekf_localizer/lib/autoware_ekf_localizer/autoware_ekf_localizer_node",
+    "/autoware/install/autoware_twist2accel/lib/autoware_twist2accel/autoware_twist2accel_node",
+    "/autoware/install/autoware_pose_instability_detector/lib/autoware_pose_instability_detector/autoware_pose_instability_detector_node",
+    "/autoware/install/autoware_localization_error_monitor/lib/autoware_localization_error_monitor/autoware_localization_error_monitor_node",
+    "/autoware/install/autoware_vehicle_velocity_converter/lib/autoware_vehicle_velocity_converter/autoware_vehicle_velocity_converter_node",
+    "/autoware/install/autoware_imu_corrector/lib/autoware_imu_corrector/imu_corrector_node",
+    "/autoware/install/autoware_gyro_bias_estimator/lib/autoware_gyro_bias_estimator/gyro_bias_estimator_node",
+    "/autoware/install/autoware_scenario_selector/lib/autoware_scenario_selector/autoware_scenario_selector_node",
+    "/autoware/install/autoware_mrm_handler/lib/autoware_mrm_handler/autoware_mrm_handler_node",
+    "/autoware/install/autoware_hazard_status_converter/lib/autoware_hazard_status_converter/autoware_hazard_status_converter_node",
+    "/autoware/install/component_state_diagnostics/lib/component_state_diagnostics/component_state_diagnostics",
+    "/autoware/install/map_projection_loader/lib/map_projection_loader/autoware_map_projection_loader_node",
+    "/autoware/install/tier4_dummy_object_rviz_plugin/lib/tier4_dummy_object_rviz_plugin/empty_objects_publisher",
+    "ub_carla_top_lidar_relay",
+    "ub_carla_control_mode_shim",
+]
+
+skip_pids = {os.getpid(), os.getppid()}
+
+def matching_pids():
+    matches = []
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit():
+            continue
+        pid = int(entry)
+        if pid in skip_pids:
+            continue
+        try:
+            raw = open(f"/proc/{pid}/cmdline", "rb").read()
+        except OSError:
+            continue
+        cmdline = raw.replace(b"\0", b" ").decode(errors="replace")
+        if any(pattern in cmdline for pattern in patterns):
+            matches.append(pid)
+    return matches
+
+for sig, delay in ((signal.SIGINT, 2.0), (signal.SIGTERM, 1.0), (signal.SIGKILL, 0.0)):
+    pids = matching_pids()
+    if not pids:
+        break
+    print(f"Sending {sig.name} to stale Autoware launch processes: {pids}")
+    for pid in pids:
+        try:
+            os.kill(pid, sig)
+        except ProcessLookupError:
+            pass
+    if delay:
+        time.sleep(delay)
+PY'
 }
 
 cleanup() {
   local exit_code="$?"
+
+  if [[ "${AUTOWARE_LAUNCH_STARTED}" -eq 1 && "${UB_KEEP_AUTOWARE_ROS}" != "1" ]]; then
+    cleanup_autoware_launch_processes "Stopping Autoware ROS launch processes. Set UB_KEEP_AUTOWARE_ROS=1 to leave them running." || true
+  fi
 
   if [[ "${CARLA_STARTED}" -eq 1 && "${UB_KEEP_CARLA}" != "1" ]]; then
     echo "Stopping CARLA Compose stack. Set UB_KEEP_CARLA=1 to leave it running."
@@ -213,6 +348,39 @@ wait_for_map_loader() {
   echo "CARLA map loaded: ${CARLA_MAP}"
 }
 
+assert_carla_running() {
+  local carla_id=""
+  local running=""
+  local status=""
+  local exit_code=""
+
+  carla_id="$(docker compose ps -q carla 2>/dev/null || true)"
+  if [[ -z "${carla_id}" ]]; then
+    echo "Error: CARLA container was not created." >&2
+    docker compose ps >&2 || true
+    return 1
+  fi
+
+  running="$(docker inspect -f '{{.State.Running}}' "${carla_id}")"
+  if [[ "${running}" == "true" ]]; then
+    return 0
+  fi
+
+  status="$(docker inspect -f '{{.State.Status}}' "${carla_id}")"
+  exit_code="$(docker inspect -f '{{.State.ExitCode}}' "${carla_id}")"
+  echo "Error: CARLA container is not running after map load: status=${status}, exit_code=${exit_code}" >&2
+  docker compose logs --tail=120 carla >&2 || true
+  return 1
+}
+
+wait_for_carla_stable() {
+  echo "Checking CARLA stays alive after map load..."
+  for _ in {1..8}; do
+    sleep 1
+    assert_carla_running
+  done
+}
+
 start_carla() {
   cd "${SCRIPT_DIR}"
 
@@ -232,6 +400,7 @@ start_carla() {
   CARLA_STARTED=1
   docker compose up --build -d carla redis map-loader
   wait_for_map_loader
+  wait_for_carla_stable
 }
 
 shell_quote() {
@@ -241,18 +410,55 @@ shell_quote() {
 launch_autoware() {
   local launch_cmd
   local exec_args=(exec)
+  local optional_launch_args=""
 
   cd "${AUTOWARE_DOCKER_DIR}"
 
+  if [[ "${UB_AUTOWARE_HOST_CONFIG_DDS}" == "1" && -x "${AUTOWARE_DOCKER_DIR}/../scripts/host_config_dds.bash" ]]; then
+    if sudo -n true 2>/dev/null; then
+      echo "Applying Autoware host DDS settings..."
+      "${AUTOWARE_DOCKER_DIR}/../scripts/host_config_dds.bash"
+    else
+      echo "Warning: skipping Autoware host DDS settings because sudo needs a password." >&2
+      echo "Run this once in a terminal before launching if Auto/route readiness is flaky:" >&2
+      echo "  cd ${AUTOWARE_DOCKER_DIR} && ../scripts/host_config_dds.bash" >&2
+    fi
+  fi
+
   echo "Starting Autoware Compose service: ${AUTOWARE_SERVICE}"
+  export RMW_IMPLEMENTATION="${UB_AUTOWARE_RMW_IMPLEMENTATION}"
+  export CYCLONEDDS_URI="${UB_AUTOWARE_CYCLONEDDS_URI}"
   docker compose up -d "${AUTOWARE_SERVICE}"
+
+  if [[ "${UB_AUTOWARE_CLEAN_STALE_PROCESSES}" == "1" ]]; then
+    cleanup_autoware_launch_processes "Cleaning stale Autoware ROS launch processes before starting."
+  fi
 
   if [[ ! -t 0 ]]; then
     exec_args+=(-T)
   fi
 
-  launch_cmd="
+  if [[ -n "${AUTOWARE_RVIZ}" ]]; then
+    optional_launch_args+=" \\
+  rviz:=$(shell_quote "${AUTOWARE_RVIZ}")"
+  fi
+  if [[ -n "${AUTOWARE_PLANNING_MODULE_PRESET}" ]]; then
+    optional_launch_args+=" \\
+  planning_module_preset:=$(shell_quote "${AUTOWARE_PLANNING_MODULE_PRESET}")"
+  fi
+
+launch_cmd="
 set -eo pipefail
+export RMW_IMPLEMENTATION=$(shell_quote "${UB_AUTOWARE_RMW_IMPLEMENTATION}")
+export CYCLONEDDS_URI=$(shell_quote "${UB_AUTOWARE_CYCLONEDDS_URI}")
+if [[ \"\${RMW_IMPLEMENTATION}\" != \"rmw_cyclonedds_cpp\" ]]; then
+  echo \"Error: expected CycloneDDS RMW, got RMW_IMPLEMENTATION=\${RMW_IMPLEMENTATION}\" >&2
+  exit 1
+fi
+if [[ \"\${CYCLONEDDS_URI}\" == file://* && ! -f \"\${CYCLONEDDS_URI#file://}\" ]]; then
+  echo \"Error: CYCLONEDDS_URI points to a missing file: \${CYCLONEDDS_URI}\" >&2
+  exit 1
+fi
 if [[ -f /opt/ros/humble/setup.bash ]]; then
   source /opt/ros/humble/setup.bash
 fi
@@ -260,6 +466,24 @@ if [[ -f /autoware/install/setup.bash ]]; then
   source /autoware/install/setup.bash
 fi
 UB_BACKGROUND_PIDS=\"\"
+if [[ $(shell_quote "${UB_AUTOWARE_RESTORE_RUNTIME_PATCHES}") == 1 ]]; then
+  python3 - <<'PY'
+from pathlib import Path
+
+restore_paths = [
+    Path('/autoware/install/awsim_sensor_kit_launch/share/awsim_sensor_kit_launch/launch/lidar.launch.xml'),
+    Path('/autoware/build/autoware_carla_interface/src/autoware_carla_interface/carla_ros.py'),
+    Path('/autoware/build/autoware_carla_interface/src/autoware_carla_interface/carla_autoware.py'),
+    Path('/autoware/install/autoware_launch/share/autoware_launch/launch/autoware.launch.xml'),
+]
+
+for path in restore_paths:
+    backup = path.with_suffix(path.suffix + '.ub-original')
+    if backup.exists():
+        path.write_text(backup.read_text())
+        print(f'Restored Autoware runtime file from UB backup: {path}')
+PY
+fi
 if [[ $(shell_quote "${UB_AUTOWARE_INSTALL_PY_DEPS}") == 1 ]]; then
   python3 - <<'PY' || python3 -m pip install --upgrade carla==0.9.16 transforms3d==0.4.2
 import carla
@@ -275,6 +499,45 @@ def version_tuple(version):
 
 if version_tuple(transforms3d.__version__) < (0, 4, 2):
     raise SystemExit(f'transforms3d {transforms3d.__version__} is older than 0.4.2')
+PY
+fi
+if [[ $(shell_quote "${UB_AUTOWARE_CARLA_PLANNING_PRESET}") == 1 ]]; then
+  AUTOWARE_PLANNING_MODULE_PRESET_FOR_CARLA=$(shell_quote "${AUTOWARE_PLANNING_MODULE_PRESET:-ub_carla}") python3 - <<'PY'
+import os
+from pathlib import Path
+
+preset_name = os.environ['AUTOWARE_PLANNING_MODULE_PRESET_FOR_CARLA']
+preset_dir = Path('/autoware/install/autoware_launch/share/autoware_launch/config/planning/preset')
+source_path = preset_dir / 'default_preset.yaml'
+target_path = preset_dir / f'{preset_name}_preset.yaml'
+
+if not source_path.exists():
+    print(f'Warning: CARLA planning preset skipped; missing {source_path}')
+else:
+    text = source_path.read_text()
+    disabled_modules = {
+        'launch_crosswalk_module',
+        'launch_walkway_module',
+        'launch_traffic_light_module',
+        'launch_virtual_traffic_light_module',
+    }
+    lines = text.splitlines()
+    for index, line in enumerate(lines[:-1]):
+        stripped = line.strip()
+        if not stripped.startswith('name: '):
+            continue
+        module_name = stripped.split(':', 1)[1].strip()
+        if module_name not in disabled_modules:
+            continue
+        default_line_index = index + 1
+        if 'default:' in lines[default_line_index]:
+            indent = lines[default_line_index].split('default:', 1)[0]
+            lines[default_line_index] = f'{indent}default: ' + repr('false')
+    target_path.write_text('\n'.join(lines) + '\n')
+    print(
+        'Prepared CARLA planning preset without traffic-light/crosswalk '
+        f'behavior modules: {target_path}'
+    )
 PY
 fi
 if [[ $(shell_quote "${UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY}") == 1 ]]; then
@@ -308,6 +571,7 @@ else:
 PY
   python3 - <<'PY' &
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.qos import DurabilityPolicy
 from rclpy.qos import HistoryPolicy
 from rclpy.qos import QoSProfile
@@ -319,20 +583,33 @@ OUTPUT_TOPIC = '/sensing/lidar/concatenated/pointcloud'
 
 rclpy.init()
 node = rclpy.create_node('ub_carla_top_lidar_relay')
-qos = QoSProfile(
+source_qos = QoSProfile(
     history=HistoryPolicy.KEEP_LAST,
     depth=10,
     reliability=ReliabilityPolicy.BEST_EFFORT,
     durability=DurabilityPolicy.VOLATILE,
 )
-publisher = node.create_publisher(PointCloud2, OUTPUT_TOPIC, qos)
+output_qos = QoSProfile(
+    history=HistoryPolicy.KEEP_LAST,
+    depth=10,
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.VOLATILE,
+)
+publisher = node.create_publisher(PointCloud2, OUTPUT_TOPIC, output_qos)
 
 def relay(message):
     publisher.publish(message)
 
-node.create_subscription(PointCloud2, SOURCE_TOPIC, relay, qos)
+node.create_subscription(PointCloud2, SOURCE_TOPIC, relay, source_qos)
 node.get_logger().info(f'Relaying {SOURCE_TOPIC} -> {OUTPUT_TOPIC}')
-rclpy.spin(node)
+try:
+    rclpy.spin(node)
+except (KeyboardInterrupt, ExternalShutdownException):
+    pass
+finally:
+    node.destroy_node()
+    if rclpy.ok():
+        rclpy.shutdown()
 PY
   UB_BACKGROUND_PIDS=\"\${UB_BACKGROUND_PIDS} \$!\"
 fi
@@ -469,19 +746,33 @@ else:
         f'      <arg name={quote}use_empty_dynamic_object_publisher{quote} '
         f'value={quote}true{quote}/>\n'
     )
+    traffic_light_arg = (
+        f'      <arg name={quote}use_traffic_light_recognition{quote} '
+        f'value={quote}false{quote}/>\n'
+    )
+    changed = False
+    if traffic_light_arg not in text and empty_objects_arg in text:
+        text = text.replace(empty_objects_arg, empty_objects_arg + traffic_light_arg, 1)
+        changed = True
     if empty_objects_arg in text:
         path.write_text(text)
+        if changed:
+            print(f'Disabled CARLA traffic-light recognition: {path}')
         print(f'Ego-only empty object publisher already enabled: {path}')
     elif data_path_arg in text:
-        path.write_text(text.replace(data_path_arg, data_path_arg + empty_objects_arg, 1))
-        print(f'Enabled ego-only empty object publisher: {path}')
+        path.write_text(text.replace(data_path_arg, data_path_arg + empty_objects_arg + traffic_light_arg, 1))
+        print(f'Enabled ego-only perception for CARLA: {path}')
     else:
         print(f'Warning: perception include data_path arg not found in {path}')
 PY
 fi
+if [[ $(shell_quote "${UB_AUTOWARE_CONTROL_MODE_SHIM}") == 1 ]]; then
 python3 - <<'PY' &
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from autoware_vehicle_msgs.msg import ControlModeReport
+from autoware_vehicle_msgs.msg import HazardLightsCommand
+from autoware_vehicle_msgs.msg import TurnIndicatorsCommand
 from autoware_vehicle_msgs.srv import ControlModeCommand
 from tier4_system_msgs.msg import OperationModeAvailability
 
@@ -490,6 +781,8 @@ node = rclpy.create_node('ub_carla_control_mode_shim')
 mode = ControlModeReport.MANUAL
 status_pub = node.create_publisher(ControlModeReport, '/vehicle/status/control_mode', 1)
 override_pub = node.create_publisher(ControlModeReport, '/ub/carla/control_mode', 1)
+hazard_pub = node.create_publisher(HazardLightsCommand, '/control/command/hazard_lights_cmd', 1)
+turn_pub = node.create_publisher(TurnIndicatorsCommand, '/control/command/turn_indicators_cmd', 1)
 availability_pub = node.create_publisher(
     OperationModeAvailability, '/system/operation_mode/availability', 1
 )
@@ -500,6 +793,16 @@ def publish_mode():
     msg.mode = mode
     status_pub.publish(msg)
     override_pub.publish(msg)
+
+    hazard = HazardLightsCommand()
+    hazard.stamp = msg.stamp
+    hazard.command = HazardLightsCommand.DISABLE
+    hazard_pub.publish(hazard)
+
+    turn = TurnIndicatorsCommand()
+    turn.stamp = msg.stamp
+    turn.command = TurnIndicatorsCommand.DISABLE
+    turn_pub.publish(turn)
 
     availability = OperationModeAvailability()
     availability.stamp = msg.stamp
@@ -528,11 +831,20 @@ node.create_service(ControlModeCommand, '/control/control_mode_request', on_requ
 node.create_timer(0.05, publish_mode)
 node.get_logger().info(
     'Providing /control/control_mode_request, /vehicle/status/control_mode, '
+    '/control/command/hazard_lights_cmd, /control/command/turn_indicators_cmd, '
     'and simulator operation-mode availability'
 )
-rclpy.spin(node)
+try:
+    rclpy.spin(node)
+except (KeyboardInterrupt, ExternalShutdownException):
+    pass
+finally:
+    node.destroy_node()
+    if rclpy.ok():
+        rclpy.shutdown()
 PY
 UB_BACKGROUND_PIDS=\"\${UB_BACKGROUND_PIDS} \$!\"
+fi
 trap 'for pid in \${UB_BACKGROUND_PIDS:-}; do kill \${pid} 2>/dev/null || true; done' EXIT
 ros2 launch autoware_launch e2e_simulator.launch.xml \\
   map_path:=$(shell_quote "${AUTOWARE_MAP_PATH}") \\
@@ -540,11 +852,22 @@ ros2 launch autoware_launch e2e_simulator.launch.xml \\
   sensor_model:=$(shell_quote "${AUTOWARE_SENSOR_MODEL}") \\
   simulator_type:=carla \\
   host:=$(shell_quote "${AUTOWARE_CARLA_HOST}") \\
-  carla_map:=$(shell_quote "${CARLA_MAP}")
+  carla_map:=$(shell_quote "${CARLA_MAP}")${optional_launch_args}
 "
 
   echo "Launching Autoware. Press Ctrl+C to stop the ROS launch."
+  AUTOWARE_LAUNCH_STARTED=1
+  set +e
   docker compose "${exec_args[@]}" "${AUTOWARE_SERVICE}" bash -lc "${launch_cmd}"
+  local launch_status=$?
+  set -e
+
+  if [[ "${UB_KEEP_AUTOWARE_ROS}" != "1" ]]; then
+    cleanup_autoware_launch_processes "Stopping Autoware ROS launch processes. Set UB_KEEP_AUTOWARE_ROS=1 to leave them running."
+    AUTOWARE_LAUNCH_STARTED=0
+  fi
+
+  return "${launch_status}"
 }
 
 for arg in "$@"; do

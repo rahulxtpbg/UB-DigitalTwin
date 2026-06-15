@@ -34,6 +34,48 @@ bash scripts/launch_carla.sh
 CARLA_ARGS="-prefernvidia -quality-level=Epic -nosound" bash scripts/launch_carla.sh
 ```
 
+**0.1. CARLA + Autoware**
+```bash
+# One command replacement for:
+#   1. scripts/launch_carla.sh
+#   2. Autoware/ub-lincoln-docker/docker/dc_up.sh
+#   3. Autoware/ub-lincoln-docker/docker/dc_bash.sh
+#   4. ros2 launch autoware_launch e2e_simulator.launch.xml ...
+CARLA_ARGS="-prefernvidia -quality-level=Epic -nosound" \
+./scripts/launch_autoware_carla.sh
+```
+
+The launcher cleans up stale Autoware ROS launch processes before starting and
+again when it exits. This avoids duplicate nodes and `web_server.py` port `8888`
+conflicts after Ctrl+C.
+
+It also runs the same Autoware DDS host setup as `dc_up.sh` when `sudo` is
+already available. If `sudo` needs a password, run this once first:
+
+```bash
+cd Autoware/ub-lincoln-docker/docker
+../scripts/host_config_dds.bash
+```
+
+The Autoware container and launcher both pin ROS 2 to CycloneDDS:
+`RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` and
+`CYCLONEDDS_URI=file:///resources/cyclonedds.xml`. This keeps the automated
+path consistent with the interactive `dc_bash.sh` workflow.
+
+Check prerequisites without starting containers:
+
+```bash
+./scripts/launch_autoware_carla.sh --dry-run
+```
+
+If RViz or CARLA puts too much pressure on the GPU, run Autoware without RViz:
+
+```bash
+AUTOWARE_RVIZ=false \
+CARLA_ARGS="-prefernvidia -quality-level=Epic -nosound" \
+./scripts/launch_autoware_carla.sh
+```
+
 **1. UB-CARLA Redis Server (UB Autonomous Proving Grounds Map)**
 ```bash
 # No Graphics
@@ -101,15 +143,28 @@ Useful overrides:
 
 ```bash
 CARLA_ARGS="-prefernvidia -quality-level=Epic" ./start_autoware_carla.sh
+AUTOWARE_RVIZ=false ./start_autoware_carla.sh
 AUTOWARE_SERVICE=<compose-service-name> ./start_autoware_carla.sh
 AUTOWARE_CARLA_HOST=<host-ip-visible-from-autoware> ./start_autoware_carla.sh
 UB_AUTOWARE_INSTALL_PY_DEPS=0 ./start_autoware_carla.sh
-UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY=0 ./start_autoware_carla.sh
+UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY=1 ./start_autoware_carla.sh
+UB_AUTOWARE_PATCH_CARLA_BRIDGE=1 ./start_autoware_carla.sh
+UB_AUTOWARE_CONTROL_MODE_SHIM=1 ./start_autoware_carla.sh
+UB_KEEP_CARLA=1 ./start_autoware_carla.sh
+UB_KEEP_AUTOWARE_ROS=1 ./start_autoware_carla.sh
 ```
 
-`UB_AUTOWARE_CARLA_TOP_LIDAR_ONLY=1` is the default compatibility mode for the
-current CARLA bridge, which spawns one top LiDAR while the installed Autoware
-sensor-kit synchronizer expects multiple pointcloud inputs.
+By default, the launcher mirrors the manual Autoware `ros2 launch` command and
+does not patch Autoware runtime files. The `UB_AUTOWARE_*` compatibility flags
+above are opt-in only.
+
+After the map loader finishes, the launcher checks that the CARLA container is
+still running before Autoware starts. This catches GPU/Vulkan crashes that would
+otherwise leave RViz open with no `/clock` and a disabled Auto button.
+
+Most `/control/command/control_cmd`, trajectory, route, and transform warnings
+during startup mean Autoware has not received an initial pose and route yet.
+Set an initial pose and goal in RViz, or use your normal AD API route workflow.
 
 ### Authoritative CARLA + manual client
 
