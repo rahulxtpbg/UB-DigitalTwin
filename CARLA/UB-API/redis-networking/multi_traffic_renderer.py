@@ -71,6 +71,10 @@ def _lerp_location(a, b, alpha):
     )
 
 
+def _copy_location(location):
+    return carla.Location(x=location.x, y=location.y, z=location.z)
+
+
 def _location_distance(a, b):
     dx = a.x - b.x
     dy = a.y - b.y
@@ -233,6 +237,10 @@ class MultiTrafficRenderer(Telemetry):
             0.0,
             min(1.0, _env_float("UB_RENDER_CAMERA_YAW_SMOOTHING", 0.04)),
         )
+        self.camera_speed_damping = max(
+            0.0,
+            min(1.0, _env_float("UB_RENDER_CAMERA_HIGH_SPEED_DAMPING", 1.0)),
+        )
         self.camera_distance = max(0.0, _env_float("UB_RENDER_CAMERA_DISTANCE_M", 8.0))
         self.camera_height = _env_float("UB_RENDER_CAMERA_HEIGHT_M", 4.0)
         self.camera_pitch = _env_float("UB_RENDER_CAMERA_PITCH_DEG", -15.0)
@@ -266,6 +274,7 @@ class MultiTrafficRenderer(Telemetry):
         self._camera_desired_transform = None
         self._camera_anchor_location = None
         self._camera_anchor_yaw = None
+        self._camera_last_target_location = None
         self._state_lock = threading.Lock()
 
         self._should_stop_cleaner = False
@@ -287,6 +296,7 @@ class MultiTrafficRenderer(Telemetry):
             f"camera_yaw_deadband={self.camera_yaw_deadband:.2f}deg "
             f"camera_target_smoothing={self.camera_target_smoothing:.2f} "
             f"camera_yaw_smoothing={self.camera_yaw_smoothing:.2f} "
+            f"camera_high_speed_damping={self.camera_speed_damping:.2f} "
             f"camera_distance={self.camera_distance:.1f}m "
             f"camera_height={self.camera_height:.1f}m "
             f"camera_pitch={self.camera_pitch:.1f}deg "
@@ -464,18 +474,21 @@ class MultiTrafficRenderer(Telemetry):
     def _update_camera_anchor(self, target_transform, dt):
         target_location = target_transform.location
         target_yaw = target_transform.rotation.yaw
+        target_speed = self._estimate_camera_target_speed(target_location, dt)
+        speed_factor = min(1.0, target_speed / 25.0) * self.camera_speed_damping
+        position_deadband = self.camera_position_deadband * (1.0 + 0.5 * speed_factor)
+        yaw_deadband = self.camera_yaw_deadband * (1.0 + 1.25 * speed_factor)
+        position_smoothing = self.camera_target_smoothing * (1.0 - 0.45 * speed_factor)
+        yaw_smoothing = self.camera_yaw_smoothing * (1.0 - 0.55 * speed_factor)
+
         if self._camera_anchor_location is None or self._camera_anchor_yaw is None:
-            self._camera_anchor_location = carla.Location(
-                x=target_location.x,
-                y=target_location.y,
-                z=target_location.z,
-            )
+            self._camera_anchor_location = _copy_location(target_location)
             self._camera_anchor_yaw = target_yaw
             return
 
         position_delta = _location_distance(self._camera_anchor_location, target_location)
-        if position_delta >= self.camera_position_deadband:
-            position_alpha = _frame_scaled_alpha(self.camera_target_smoothing, dt)
+        if position_delta >= position_deadband:
+            position_alpha = _frame_scaled_alpha(position_smoothing, dt)
             self._camera_anchor_location = _lerp_location(
                 self._camera_anchor_location,
                 target_location,
@@ -483,13 +496,24 @@ class MultiTrafficRenderer(Telemetry):
             )
 
         yaw_delta = abs(_normalize_angle_degrees(target_yaw - self._camera_anchor_yaw))
-        if yaw_delta >= self.camera_yaw_deadband:
-            yaw_alpha = _frame_scaled_alpha(self.camera_yaw_smoothing, dt)
+        if yaw_delta >= yaw_deadband:
+            yaw_alpha = _frame_scaled_alpha(yaw_smoothing, dt)
             self._camera_anchor_yaw = _lerp_angle_degrees(
                 self._camera_anchor_yaw,
                 target_yaw,
                 yaw_alpha,
             )
+
+    def _estimate_camera_target_speed(self, target_location, dt):
+        previous_location = self._camera_last_target_location
+        self._camera_last_target_location = _copy_location(target_location)
+        if previous_location is None or dt <= 1e-6:
+            return 0.0
+        distance = _location_distance(previous_location, target_location)
+        speed = distance / dt
+        if not math.isfinite(speed):
+            return 0.0
+        return min(80.0, max(0.0, speed))
 
     def _set_spectator_transform(self, transform):
         self.world.get_spectator().set_transform(transform)
@@ -500,6 +524,7 @@ class MultiTrafficRenderer(Telemetry):
         self._camera_desired_transform = None
         self._camera_anchor_location = None
         self._camera_anchor_yaw = None
+        self._camera_last_target_location = None
 
     def _get_chase_camera_transform(self, target_transform):
         return self._get_chase_camera_transform_from_anchor(

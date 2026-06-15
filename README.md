@@ -140,6 +140,7 @@ UB_RENDER_CAMERA_POSITION_DEADBAND_M=0.15 ./start_carla_client.sh 127.0.0.1
 UB_RENDER_CAMERA_YAW_DEADBAND_DEG=0.75 ./start_carla_client.sh 127.0.0.1
 UB_RENDER_CAMERA_TARGET_SMOOTHING=0.10 ./start_carla_client.sh 127.0.0.1
 UB_RENDER_CAMERA_YAW_SMOOTHING=0.025 ./start_carla_client.sh 127.0.0.1
+UB_RENDER_CAMERA_HIGH_SPEED_DAMPING=1.0 ./start_carla_client.sh 127.0.0.1
 UB_RENDER_CAMERA_MODE=snap_once ./start_carla_client.sh 127.0.0.1
 UB_RENDER_MAX_EXTRAPOLATION_MS=100 ./start_carla_client.sh 127.0.0.1
 UB_RENDER_UPDATE_HZ=60 ./start_carla_client.sh 127.0.0.1
@@ -147,7 +148,7 @@ UB_RENDER_UPDATE_HZ=60 ./start_carla_client.sh 127.0.0.1
 
 Use `UB_RENDER_CAMERA_MODE=snap_once` to place the camera behind the mirrored manual vehicle when it appears, then leave the camera stationary. This is useful for separating camera-follow jitter from mirrored vehicle motion jitter.
 
-If motion is still jittery, first try `UB_RENDER_ACTOR_SMOOTHING=0.60`. If the camera still feels shaky but the vehicle looks smooth, lower `UB_RENDER_CAMERA_YAW_SMOOTHING`, lower `UB_RENDER_CAMERA_TARGET_SMOOTHING`, or raise `UB_RENDER_CAMERA_YAW_DEADBAND_DEG` instead.
+If motion is still jittery, first try `UB_RENDER_ACTOR_SMOOTHING=0.60`. If the camera still feels shaky but the vehicle looks smooth, lower `UB_RENDER_CAMERA_YAW_SMOOTHING`, lower `UB_RENDER_CAMERA_TARGET_SMOOTHING`, raise `UB_RENDER_CAMERA_YAW_DEADBAND_DEG`, or keep `UB_RENDER_CAMERA_HIGH_SPEED_DAMPING=1.0` enabled for faster driving.
 
 When the camera attaches correctly, the logs should include:
 
