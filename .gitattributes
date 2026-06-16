@@ -1,1 +1,0 @@
-web/static/videos/teaser.mp4 filter=lfs diff=lfs merge=lfs -text

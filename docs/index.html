@@ -8,8 +8,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>UB-DigitalTwin: A Practical Guide for Connected Autonomous Vehicle Simulation</title>
 
-  <!-- Global site tag (gtag.js) - Google Analytics -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-21CB6DRHQZ"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
 
@@ -19,7 +19,7 @@
 
     gtag('js', new Date());
 
-    gtag('config', 'G-PYVRSFMDRL');
+    gtag('config', 'G-21CB6DRHQZ');
   </script>
 
   <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
@@ -66,10 +66,10 @@
           <a class="navbar-item" href="https://arxiv.org/abs/2507.XXXXX">
             Research Paper (arXiv)
           </a>
-          <a class="navbar-item" href="paper_overview.md">
+          <a class="navbar-item" href="https://github.com/ub-cavas/UB-DigitalTwin#readme">
             Overview
           </a>
-          <a class="navbar-item" href="repository_overview.md">
+          <a class="navbar-item" href="https://github.com/ub-cavas/UB-DigitalTwin">
             Repository Reference
           </a>
         </div>
@@ -88,11 +88,11 @@
           <h1 class="title is-1 publication-title">Constructing a Digital Twin of a Physical Testbed: A Practical Guide for Connected Autonomous Vehicle Simulation</h1>
 
           <p class="is-size-5 publication-authors">
-            <a href="https://github.com/oakley-Thomas"><strong>Oakley Thomas</a><sup>*</sup></strong>,</p>
+            <a href="https://github.com/oakley-Thomas"><strong>Oakley Thomas</strong></a><sup>*</sup>,</p>
           <p class="is-size-5 publication-authors">
-            <a href="https://github.com/rahulxtpbg"><strong>Rahul Gedela</a><sup>*</sup></strong>,</p>
+            <a href="https://github.com/rahulxtpbg"><strong>Rahul Gedela</strong></a><sup>*</sup>,</p>
           <p class="is-size-5 publication-authors">
-            <a href="https://github.com/anuraghruday"><strong>Anurag Hruday Pirangi</a><sup>*</sup></strong>,</p>
+            <a href="https://github.com/anuraghruday"><strong>Anurag Hruday Pirangi</strong></a><sup>*</sup>,</p>
           <p class="is-size-5 publication-authors">
             <strong>Jee Heum Rah</strong>, <strong>Yunchang Kum</strong>, <strong>Steven Korzelius</strong>,
             <strong>Chaozhe R. He</strong>, <strong>Adel W. Sadek</strong>, <strong>Chunming Qiao</strong>
@@ -109,7 +109,7 @@
             <div class="publication-links">
               <!-- PDF Link. -->
               <span class="link-block">
-                <a href="https://arxiv.org/pdf/2011.12948"
+                <a href="./static/pdfs/Constructing-a-Digital-Twin-of-a-Physical-Testbed-A-Practical-Guide-for-Connected-Autonomous-Vehicle-Simulation.pdf"
                    class="external-link button is-normal is-rounded is-dark">
                   <span class="icon">
                       <i class="fas fa-file-pdf"></i>
@@ -168,9 +168,6 @@
       <div class="column is-four-fifths">
         <h2 class="title is-3">Abstract</h2>
         <div class="content has-text-justified">
-          <p>
-            Constructing a Digital Twin of a Physical Testbed: A Practical Guide for Connected Autonomous Vehicle Simulation
-          </p>
           <p>
             This work presents an open-source digital twin framework that tightly integrates four
             pillars — Autoware Universe, MathWorks RoadRunner, SUMO, and CARLA — into a synchronized
@@ -268,6 +265,21 @@
               </figure>
             </div>
           </div>
+
+          <h3 class="title is-4">Real environment vs. the digital twin</h3>
+          <p class="has-text-centered" style="font-size:0.85em;color:#5b6675;">
+            Drag the handle to wipe between the real proving ground and its reconstruction.
+          </p>
+          <div class="compare" id="compare">
+            <img class="img-bottom" src="./static/images/compare_twin.webp" width="960" height="551" loading="lazy" alt="Reconstructed digital twin">
+            <img class="img-top" src="./static/images/compare_real.webp" width="960" height="551" loading="lazy" alt="Real proving ground">
+            <span class="c-label left">REAL</span>
+            <span class="c-label right">DIGITAL TWIN</span>
+            <div class="c-divider"></div>
+            <div class="c-handle" tabindex="0" role="slider" aria-label="Reveal the real environment versus the digital twin"
+                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><i class="fas fa-arrows-alt-h"></i></div>
+          </div>
+
           <h3 class="title is-4">Temporal Synchronization Performance</h3>
           <p>
             Our synchronization approach eliminates the timestamp drift inherent in three-way co-simulation. Across 5,000
@@ -277,7 +289,7 @@
           <div class="columns is-centered">
             <div class="column content">
               <figure>
-                <img src="./static/images/sync_comparison.png" alt="Sync Comparison" style="width:100%;"/>
+                <img src="./static/images/sync_comparison.png" alt="Sync Comparison" style="width:100%;max-width:520px;display:block;margin:0 auto;"/>
                 <figcaption style="font-size:0.75em;margin-top:0.5rem;">Double-tick vs. synchronized timestamp drift across simulation steps</figcaption>
               </figure>
             </div>
@@ -332,7 +344,7 @@
     <h2 class="title">BibTeX</h2>
     <pre><code>@misc{gedela2026ubdigitaltwin,
   author       = {Thomas, Oakley and Gedela, Rahul and Pirangi, Anurag Hruday and Rah, Jee Heum and Kum, Yunchang and Korzelius, Steven and He, Chaozhe R. and Sadek, Adel W. and Qiao, Chunming},
-  title        = {UB-DigitalTwin: A Framework for Co-Simulation of Connected Autonomous Vehicles},
+  title        = {Constructing a Digital Twin of a Physical Testbed: A Practical Guide for Connected Autonomous Vehicle Simulation},
   year        = {2026},
   publisher    = {GitHub},
   journal      = {GitHub Repository},
@@ -346,9 +358,9 @@
 <footer class="footer">
   <div class="container">
     <div class="content has-text-centered">
-      <!-- PDF Paper Link (when available) -->
+      <!-- PDF Paper Link -->
       <a class="icon-link"
-         href="https://arxiv.org/abs/2507.XXXXX">
+         href="./static/pdfs/Constructing-a-Digital-Twin-of-a-Physical-Testbed-A-Practical-Guide-for-Connected-Autonomous-Vehicle-Simulation.pdf">
         <i class="fas fa-file-pdf"></i>
       </a>
       <a class="icon-link"
