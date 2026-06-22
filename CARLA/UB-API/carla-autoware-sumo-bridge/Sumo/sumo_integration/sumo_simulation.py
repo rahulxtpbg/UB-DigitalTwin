@@ -304,6 +304,17 @@ def _get_sumo_net(cfg_file):
     sumo_net = sumolib.net.readNet(net_file)
     return sumo_net
 
+
+def _env_bool(name, default=False):
+    """
+    Returns whether an environment variable is set to a truthy value.
+    """
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.lower() in ('1', 'true', 'yes', 'on')
+
+
 class SumoSimulation(object):
     """
     SumoSimulation is responsible for the management of the sumo simulation.
@@ -316,15 +327,21 @@ class SumoSimulation(object):
 
         if host is None or port is None:
             logging.info('Starting new sumo server...')
-            if sumo_gui is True:
-                logging.info('Remember to press the play button to start the simulation')
-
-            traci.start([sumo_binary,
+            sumo_cmd = [sumo_binary,
                 '--configuration-file', cfg_file,
                 '--step-length', str(step_length),
                 '--lateral-resolution', '0.25',
                 '--collision.check-junctions'
-            ])
+            ]
+
+            if sumo_gui is True:
+                if _env_bool('UB_SUMO_AUTO_START', default=True):
+                    logging.info('Starting SUMO GUI with --start.')
+                    sumo_cmd.append('--start')
+                else:
+                    logging.info('Remember to press the play button to start the simulation')
+
+            traci.start(sumo_cmd)
 
         else:
             logging.info('Connection to sumo server. Host: %s Port: %s', host, port)

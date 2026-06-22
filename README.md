@@ -61,6 +61,11 @@ The Autoware container and launcher both pin ROS 2 to CycloneDDS:
 `CYCLONEDDS_URI=file:///resources/cyclonedds.xml`. This keeps the automated
 path consistent with the interactive `dc_bash.sh` workflow.
 
+**1.1 CARLA-AUTOWAR-SUMO**
+```bash
+./scripts/launch_autoware_carla_sumo.sh 
+```
+
 
 **2. Multi-Agent Server**
 ```bash
