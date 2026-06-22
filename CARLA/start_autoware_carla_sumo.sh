@@ -45,20 +45,22 @@ UB_AUTOWARE_CLEAN_STALE_PROCESSES="${UB_AUTOWARE_CLEAN_STALE_PROCESSES:-1}"
 UB_KEEP_CARLA="${UB_KEEP_CARLA:-0}"
 UB_KEEP_AUTOWARE_ROS="${UB_KEEP_AUTOWARE_ROS:-0}"
 UB_KEEP_SUMO="${UB_KEEP_SUMO:-0}"
+UB_KEEP_ON_ERROR="${UB_KEEP_ON_ERROR:-1}"
 
 SUMO_BRIDGE_COMPOSE_FILE="${SUMO_BRIDGE_COMPOSE_FILE:-${TMPDIR:-/tmp}/ub-carla-sumo-bridge-compose-$(id -u).yml}"
 SUMO_BRIDGE_IMAGE="${SUMO_BRIDGE_IMAGE:-ub-carla-sumo-bridge}"
 SUMO_BRIDGE_CONTAINER_NAME="${SUMO_BRIDGE_CONTAINER_NAME:-ub-carla-sumo-bridge}"
+UB_SUMO_SCENARIO_DIR="${UB_SUMO_SCENARIO_DIR:-${REPO_DIR}/Scenarios/SUMO/RandomTraffic}"
 
 UB_SUMO_CONFIG="${UB_SUMO_CONFIG:-UBAutonomousProvingGrounds.sumocfg}"
 UB_SUMO_STEP_LENGTH="${UB_SUMO_STEP_LENGTH:-0.05}"
-UB_SUMO_GUI="${UB_SUMO_GUI:-0}"
+UB_SUMO_GUI="${UB_SUMO_GUI:-1}"
 UB_SUMO_AUTO_START="${UB_SUMO_AUTO_START:-1}"
 UB_SUMO_TLS_MANAGER="${UB_SUMO_TLS_MANAGER:-sumo}"
 UB_SUMO_SYNC_VEHICLE_COLOR="${UB_SUMO_SYNC_VEHICLE_COLOR:-0}"
 UB_SUMO_SYNC_VEHICLE_LIGHTS="${UB_SUMO_SYNC_VEHICLE_LIGHTS:-0}"
 UB_SUMO_EXTRA_ARGS="${UB_SUMO_EXTRA_ARGS:-}"
-UB_SUMO_RANDOM_TRAFFIC="${UB_SUMO_RANDOM_TRAFFIC:-1}"
+UB_SUMO_RANDOM_TRAFFIC="${UB_SUMO_RANDOM_TRAFFIC:-0}"
 UB_SUMO_RANDOM_VEHICLES="${UB_SUMO_RANDOM_VEHICLES:-25}"
 UB_SUMO_RANDOM_WALKERS="${UB_SUMO_RANDOM_WALKERS:-0}"
 UB_SUMO_RANDOM_SAFE="${UB_SUMO_RANDOM_SAFE:-1}"
@@ -84,6 +86,7 @@ Defaults:
   CARLA_MAP=${CARLA_MAP}
   CARLA_ARGS=${CARLA_ARGS}
   UB_SUMO_CONFIG=${UB_SUMO_CONFIG}
+  UB_SUMO_SCENARIO_DIR=${UB_SUMO_SCENARIO_DIR}
   UB_SUMO_STEP_LENGTH=${UB_SUMO_STEP_LENGTH}
   UB_SUMO_GUI=${UB_SUMO_GUI}
   UB_SUMO_AUTO_START=${UB_SUMO_AUTO_START}
@@ -91,6 +94,7 @@ Defaults:
   UB_SUMO_RANDOM_TRAFFIC=${UB_SUMO_RANDOM_TRAFFIC}
   UB_SUMO_RANDOM_VEHICLES=${UB_SUMO_RANDOM_VEHICLES}
   UB_SUMO_RANDOM_SAFE=${UB_SUMO_RANDOM_SAFE}
+  UB_KEEP_ON_ERROR=${UB_KEEP_ON_ERROR}
   AUTOWARE_MAP_PATH=${AUTOWARE_MAP_PATH}
   AUTOWARE_SERVICE=${AUTOWARE_SERVICE}
   AUTOWARE_VEHICLE_MODEL=${AUTOWARE_VEHICLE_MODEL}
@@ -100,10 +104,13 @@ Defaults:
 
 Useful overrides:
   UB_SUMO_RANDOM_VEHICLES=40 $(basename "$0")
-  UB_SUMO_GUI=1 $(basename "$0")
-  UB_SUMO_RANDOM_TRAFFIC=0 UB_SUMO_CONFIG=Town01.sumocfg $(basename "$0")
+  UB_SUMO_GUI=0 $(basename "$0")
+  UB_SUMO_SCENARIO_DIR=/path/to/scenario $(basename "$0")
+  UB_SUMO_RANDOM_TRAFFIC=1 $(basename "$0")
+  UB_SUMO_SCENARIO_DIR= UB_SUMO_CONFIG=Town01.sumocfg $(basename "$0")
   UB_SUMO_EXTRA_ARGS="--debug" $(basename "$0")
   AUTOWARE_RVIZ=false $(basename "$0")
+  UB_KEEP_ON_ERROR=0 $(basename "$0")
   UB_KEEP_CARLA=1 UB_KEEP_SUMO=1 $(basename "$0")
 
 Options:
@@ -155,6 +162,16 @@ collect_preflight_failures() {
     fi
     if [[ ! -f "${BRIDGE_DIR}/Sumo/data/vtypes.json" ]]; then
       preflight_failures+=("Missing SUMO vehicle type data: ${BRIDGE_DIR}/Sumo/data/vtypes.json")
+    fi
+  elif [[ -n "${UB_SUMO_SCENARIO_DIR}" ]]; then
+    if [[ ! -f "${UB_SUMO_SCENARIO_DIR}/${UB_SUMO_CONFIG}" ]]; then
+      preflight_failures+=("Missing SUMO scenario config: ${UB_SUMO_SCENARIO_DIR}/${UB_SUMO_CONFIG}")
+    fi
+    if [[ ! -f "${UB_SUMO_SCENARIO_DIR}/UBAutonomousProvingGrounds.net.xml" ]]; then
+      preflight_failures+=("Missing SUMO scenario net: ${UB_SUMO_SCENARIO_DIR}/UBAutonomousProvingGrounds.net.xml")
+    fi
+    if [[ ! -f "${UB_SUMO_SCENARIO_DIR}/UBAutonomousProvingGrounds.rou.xml" ]]; then
+      preflight_failures+=("Missing SUMO scenario routes: ${UB_SUMO_SCENARIO_DIR}/UBAutonomousProvingGrounds.rou.xml")
     fi
   elif [[ ! -f "${BRIDGE_DIR}/Sumo/examples/${UB_SUMO_CONFIG}" ]]; then
     preflight_failures+=("Missing SUMO config: ${BRIDGE_DIR}/Sumo/examples/${UB_SUMO_CONFIG}")
@@ -217,6 +234,7 @@ Dry run passed. The launcher would run:
   UB_SUMO_RANDOM_TRAFFIC=${UB_SUMO_RANDOM_TRAFFIC} \\
   UB_SUMO_RANDOM_VEHICLES=${UB_SUMO_RANDOM_VEHICLES} \\
   UB_SUMO_RANDOM_SAFE=${UB_SUMO_RANDOM_SAFE} \\
+  UB_SUMO_SCENARIO_DIR=${UB_SUMO_SCENARIO_DIR:-<disabled>} \\
   UB_SUMO_CONFIG=${UB_SUMO_CONFIG} \\
   UB_SUMO_STEP_LENGTH=${UB_SUMO_STEP_LENGTH} \\
   UB_SUMO_GUI=${UB_SUMO_GUI} \\
@@ -308,7 +326,8 @@ services:
       SUMO_HOME: \${SUMO_HOME:-/usr/share/sumo}
       CARLA_PYTHON_TARGET: /tmp/ub-carla-python-${BUILD_FOLDER}
       UB_SUMO_CONFIG: \${UB_SUMO_CONFIG:-UBAutonomousProvingGrounds.sumocfg}
-      UB_SUMO_RANDOM_TRAFFIC: \${UB_SUMO_RANDOM_TRAFFIC:-1}
+      UB_SUMO_SCENARIO_DIR: /opt/ub-sumo-scenarios/RandomTraffic
+      UB_SUMO_RANDOM_TRAFFIC: \${UB_SUMO_RANDOM_TRAFFIC:-0}
       UB_SUMO_RANDOM_VEHICLES: \${UB_SUMO_RANDOM_VEHICLES:-25}
       UB_SUMO_RANDOM_WALKERS: \${UB_SUMO_RANDOM_WALKERS:-0}
       UB_SUMO_RANDOM_SAFE: \${UB_SUMO_RANDOM_SAFE:-1}
@@ -316,7 +335,7 @@ services:
       UB_SUMO_RANDOM_FILTERW: \${UB_SUMO_RANDOM_FILTERW:-walker.pedestrian.*}
       UB_SUMO_RANDOM_EXTRA_ARGS: \${UB_SUMO_RANDOM_EXTRA_ARGS:-}
       UB_SUMO_STEP_LENGTH: \${UB_SUMO_STEP_LENGTH:-0.05}
-      UB_SUMO_GUI: \${UB_SUMO_GUI:-0}
+      UB_SUMO_GUI: \${UB_SUMO_GUI:-1}
       UB_SUMO_AUTO_START: \${UB_SUMO_AUTO_START:-1}
       UB_SUMO_TLS_MANAGER: \${UB_SUMO_TLS_MANAGER:-sumo}
       UB_SUMO_SYNC_VEHICLE_COLOR: \${UB_SUMO_SYNC_VEHICLE_COLOR:-0}
@@ -324,6 +343,7 @@ services:
       UB_SUMO_EXTRA_ARGS: \${UB_SUMO_EXTRA_ARGS:-}
     volumes:
       - ./Builds/${BUILD_FOLDER}:/carla:ro
+      - "${UB_SUMO_SCENARIO_DIR}:/opt/ub-sumo-scenarios/RandomTraffic:ro"
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - \${XAUTHORITY:-/tmp/.Xauthority}:/tmp/.docker.xauth:ro
     entrypoint:
@@ -365,7 +385,7 @@ services:
         export PYTHONPATH="\$\${CARLA_PYTHON_TARGET}:\$\${SUMO_ROOT}:\$\${SUMO_HOME}/tools\$\${PYTHONPATH:+:\$\${PYTHONPATH}}"
         cd "\$\${SUMO_ROOT}"
 
-        if is_true "\$\${UB_SUMO_RANDOM_TRAFFIC:-1}"; then
+        if is_true "\$\${UB_SUMO_RANDOM_TRAFFIC:-0}"; then
           ARGS=(
             --host "\$\${UB_CARLA_HOST:-127.0.0.1}"
             --port "\$\${UB_CARLA_PORT:-2000}"
@@ -400,7 +420,20 @@ services:
           exec python3 -u "\$\${SUMO_ROOT}/spawn_npc_sumo.py" "\$\${ARGS[@]}"
         fi
 
-        SUMO_CFG_PATH="\$\${SUMO_ROOT}/examples/\$\${UB_SUMO_CONFIG:-UBAutonomousProvingGrounds.sumocfg}"
+        SCENARIO_ROOT="\$\${UB_SUMO_SCENARIO_DIR:-}"
+        if [[ -n "\$\${SCENARIO_ROOT}" && -f "\$\${SCENARIO_ROOT}/\$\${UB_SUMO_CONFIG:-UBAutonomousProvingGrounds.sumocfg}" ]]; then
+          PREPARED_SCENARIO_DIR="/tmp/ub-sumo-scenario"
+          rm -rf "\$\${PREPARED_SCENARIO_DIR}"
+          mkdir -p "\$\${PREPARED_SCENARIO_DIR}/net" "\$\${PREPARED_SCENARIO_DIR}/rou"
+          cp "\$\${SCENARIO_ROOT}/\$\${UB_SUMO_CONFIG:-UBAutonomousProvingGrounds.sumocfg}" "\$\${PREPARED_SCENARIO_DIR}/"
+          cp "\$\${SCENARIO_ROOT}/UBAutonomousProvingGrounds.net.xml" "\$\${PREPARED_SCENARIO_DIR}/net/"
+          cp "\$\${SCENARIO_ROOT}/UBAutonomousProvingGrounds.rou.xml" "\$\${PREPARED_SCENARIO_DIR}/rou/"
+          SUMO_CFG_PATH="\$\${PREPARED_SCENARIO_DIR}/\$\${UB_SUMO_CONFIG:-UBAutonomousProvingGrounds.sumocfg}"
+          echo "Using SUMO scenario: \$\${SCENARIO_ROOT}"
+        else
+          SUMO_CFG_PATH="\$\${SUMO_ROOT}/examples/\$\${UB_SUMO_CONFIG:-UBAutonomousProvingGrounds.sumocfg}"
+        fi
+
         if [[ ! -f "\$\${SUMO_CFG_PATH}" ]]; then
           echo "Error: SUMO config not found: \$\${SUMO_CFG_PATH}" >&2
           exit 1
@@ -546,6 +579,7 @@ start_sumo_bridge() {
     export XAUTHORITY="${HOME}/.Xauthority"
   fi
   export UB_SUMO_CONFIG
+  export UB_SUMO_SCENARIO_DIR
   export UB_SUMO_STEP_LENGTH
   export UB_SUMO_GUI
   export UB_SUMO_AUTO_START
@@ -563,6 +597,8 @@ start_sumo_bridge() {
 
   if bool_enabled "${UB_SUMO_RANDOM_TRAFFIC}"; then
     echo "Starting CARLA-SUMO bridge with ${UB_SUMO_RANDOM_VEHICLES} random SUMO vehicles on ${CARLA_MAP}..."
+  elif [[ -n "${UB_SUMO_SCENARIO_DIR}" ]]; then
+    echo "Starting CARLA-SUMO bridge with SUMO scenario ${UB_SUMO_SCENARIO_DIR}/${UB_SUMO_CONFIG}..."
   else
     echo "Starting CARLA-SUMO bridge with SUMO config ${UB_SUMO_CONFIG}..."
   fi
@@ -735,6 +771,19 @@ ros2 launch autoware_launch e2e_simulator.launch.xml \\
 
 cleanup() {
   local exit_code="$?"
+
+  if [[ "${exit_code}" -ne 0 && "${exit_code}" -ne 130 && "${exit_code}" -ne 143 && "${UB_KEEP_ON_ERROR}" == "1" ]]; then
+    echo "Launcher exited with status ${exit_code}; leaving started containers for inspection because UB_KEEP_ON_ERROR=1."
+    if [[ "${SUMO_STARTED}" -eq 1 ]]; then
+      echo "Inspect SUMO with:"
+      echo "  cd ${SCRIPT_DIR} && docker compose -f docker-compose.yml -f ${SUMO_BRIDGE_COMPOSE_FILE} logs --tail=200 sumo-bridge"
+    fi
+    if [[ "${CARLA_STARTED}" -eq 1 ]]; then
+      echo "Stop CARLA/SUMO later with:"
+      echo "  cd ${SCRIPT_DIR} && docker compose -f docker-compose.yml -f ${SUMO_BRIDGE_COMPOSE_FILE} down"
+    fi
+    exit "${exit_code}"
+  fi
 
   if [[ "${AUTOWARE_LAUNCH_STARTED}" -eq 1 && "${UB_KEEP_AUTOWARE_ROS}" != "1" ]]; then
     cleanup_autoware_launch_processes "Stopping Autoware ROS launch processes. Set UB_KEEP_AUTOWARE_ROS=1 to leave them running." || true
